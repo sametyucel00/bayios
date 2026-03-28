@@ -70,6 +70,11 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $RUNNER_TEMP/build_pp.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles
 
+      - name: Show signing info
+        run: |
+          security find-identity -v -p codesigning
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles
+
       - name: Create ExportOptions.plist
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -98,6 +103,7 @@ jobs:
           </dict>
           </plist>
           EOF
+          cat $EXPORT_OPTIONS_PLIST
 
       - name: Archive iOS app
         env:
@@ -114,7 +120,16 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
             PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
             CODE_SIGN_STYLE=Manual \
-            clean archive
+            -allowProvisioningUpdates \
+            clean archive | tee ios/build/archive.log
+
+      - name: Upload archive log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-archive-log
+          path: ios/build/archive.log
+          if-no-files-found: ignore
 
       - name: Export IPA
         run: |
