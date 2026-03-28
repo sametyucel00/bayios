@@ -35,6 +35,9 @@ jobs:
       - name: Sync Capacitor iOS project
         run: npm run ios:sync
 
+      - name: Prepare build folders
+        run: mkdir -p ios/build/export
+
       - name: Decode signing certificate
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
