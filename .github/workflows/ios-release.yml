@@ -103,13 +103,13 @@ jobs:
           </dict>
           </plist>
           EOF
-          cat $EXPORT_OPTIONS_PLIST
 
       - name: Archive iOS app
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
         run: |
+          set -o pipefail
           xcodebuild \
             -project $APP_PROJECT \
             -scheme $APP_SCHEME \
@@ -122,6 +122,13 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             -allowProvisioningUpdates \
             clean archive | tee ios/build/archive.log
+
+      - name: Verify archive exists
+        run: |
+          if [ ! -d "$ARCHIVE_PATH" ]; then
+            echo "Archive was not created."
+            exit 1
+          fi
 
       - name: Upload archive log
         if: always()
