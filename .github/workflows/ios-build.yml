@@ -36,10 +36,11 @@ jobs:
         run: |
           xcodebuild \
             -project ios/App/App.xcodeproj \
-            -target App \
+            -scheme App \
             -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            SYMROOT=ios/build \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath ios/build \
             CODE_SIGNING_ALLOWED=NO \
             build
 
@@ -47,5 +48,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bayios-ios-simulator-app
-          path: ios/build/Debug-iphonesimulator/App.app
+          path: ios/build/Build/Products/Debug-iphonesimulator/App.app
           if-no-files-found: error
