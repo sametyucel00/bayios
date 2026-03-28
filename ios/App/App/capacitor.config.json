@@ -1,0 +1,10 @@
+{
+	"appId": "com.bayios.app",
+	"appName": "BayiOS",
+	"webDir": "dist",
+	"packageClassList": [
+		"GeolocationPlugin",
+		"LocalNotificationsPlugin",
+		"PushNotificationsPlugin"
+	]
+}
