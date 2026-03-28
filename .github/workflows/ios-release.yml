@@ -120,7 +120,7 @@ jobs:
             PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
             PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
             CODE_SIGN_STYLE=Manual \
-            -allowProvisioningUpdates \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             clean archive | tee ios/build/archive.log
 
       - name: Verify archive exists
