@@ -14,17 +14,6 @@ import {
     setDoc
 } from "firebase/firestore";
 
-export const updateProductInFirestore = async (productId, data) => {
-    const productRef = doc(db, "products", productId);
-    return await updateDoc(productRef, data);
-};
-
-export const deleteProductFromFirestore = async (productId) => {
-    const productRef = doc(db, "products", productId);
-    return await deleteDoc(productRef);
-};
-
-
 // Protected where wrapper to prevent "Unsupported field value: undefined" crash
 const hasUndefinedDeep = (value) => {
     if (value === undefined) return true;
@@ -532,6 +521,11 @@ export const addProductToFirestore = async (product) => {
 export const updateProductInFirestore = async (productId, data) => {
     const productRef = doc(db, "products", productId);
     return await updateDoc(productRef, data);
+};
+
+export const deleteProductFromFirestore = async (productId) => {
+    const productRef = doc(db, "products", productId);
+    return await deleteDoc(productRef);
 };
 
 // CRUD for Suppliers
