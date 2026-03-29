@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { User, Lock, LogIn, Truck, Building2, ShoppingBag, Eye, EyeOff, ShieldCheck, UserPlus, Info, Cpu } from 'lucide-react';
 import { getUserByCredentials, registerUserToFirestore, checkActivationCode, validateAndUseActivationCodeToFirestore, getUserByUsername, updateUserInFirestore, getBusinessByCourierCode, checkUserRegistrationConflicts, findMatchingSubscriberForCustomer, syncCustomerRegistrationWithSubscriber } from '../services/firestoreService';
 import { HelpCircle } from 'lucide-react';
@@ -31,6 +31,19 @@ const DEFAULT_DEVELOPER_CREDENTIALS = {
         id: 'developer_root',
         name: 'Sistem Mimarı',
         role: 'developer'
+    }
+};
+
+const getRememberMeDefault = () => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    try {
+        return window.localStorage.getItem('bayios-auto-login') === 'true';
+    } catch (error) {
+        console.warn('Auto-login preference could not be read from localStorage.', error);
+        return false;
     }
 };
 
@@ -98,7 +111,7 @@ const Login = ({ onLogin }) => {
     const [password, setPassword] = useState('isletme'); // Admin demo default
     const [courierCode, setCourierCode] = useState('');
     const [activationCode, setActivationCode] = useState('');
-    const [rememberMe, setRememberMe] = useState(localStorage.getItem('bayios-auto-login') === 'true');
+    const [rememberMe, setRememberMe] = useState(getRememberMeDefault());
 
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
@@ -846,7 +859,3 @@ const Login = ({ onLogin }) => {
 };
 
 export default Login;
-
-
-
-
