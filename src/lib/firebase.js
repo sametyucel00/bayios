@@ -27,6 +27,12 @@ const createFirestore = () => {
         return getFirestore(app);
     }
 
+    if (Capacitor.isNativePlatform()) {
+        return initializeFirestore(app, {
+            cache: memoryLocalCache()
+        });
+    }
+
     try {
         return initializeFirestore(app, {
             cache: persistentLocalCache({
