@@ -13,6 +13,7 @@ import {
     bulkUpdateSubscribersInFirestore,
     bulkDeleteSubscribersFromFirestore,
     updateProductInFirestore,
+    deleteProductFromFirestore,
     updateOrderInFirestore,
     updateSupplierInFirestore,
     updateCourierInFirestore,
@@ -26,9 +27,27 @@ import {
     subscribeToUser,
     addReconciliationToFirestore,
     registerUserToFirestore,
-    addIncomingCallToFirestore, deleteIncomingCallFromFirestore, clearIncomingCallsFromFirestore,
+    addIncomingCallToFirestore,
+    deleteIncomingCallFromFirestore,
+    clearIncomingCallsFromFirestore,
     sendDeviceCommand
 } from '../services/firestoreService';
+
+const createSafeStorage = () => {
+    if (typeof window === 'undefined') {
+        return undefined;
+    }
+
+    try {
+        const testKey = '__bayios_storage_test__';
+        window.localStorage.setItem(testKey, '1');
+        window.localStorage.removeItem(testKey);
+        return window.localStorage;
+    } catch (error) {
+        console.warn('localStorage is unavailable, falling back to in-memory persistence.', error);
+        return undefined;
+    }
+};
 
 const useStore = create(
     persist(
@@ -57,17 +76,20 @@ const useStore = create(
             unsubscribers: [],
 
             setUser: (user) => set({ currentUser: user }),
+
             cleanupListeners: () => {
                 const currentUnsubs = get().unsubscribers;
                 if (currentUnsubs && currentUnsubs.length > 0) {
-                    currentUnsubs.forEach(unsub => {
+                    currentUnsubs.forEach((unsub) => {
                         if (typeof unsub === 'function') unsub();
                     });
                 }
                 set({ unsubscribers: [], isSyncing: false });
             },
+
             setActiveCall: (call) => set({ activeCall: call }),
             clearActiveCall: () => set({ activeCall: null }),
+
             clearData: () => set({
                 subscribers: [],
                 products: [],
@@ -100,23 +122,17 @@ const useStore = create(
                     timestamp: new Date().toISOString()
                 });
             },
+
             deleteIncomingCall: async (id) => {
                 await deleteIncomingCallFromFirestore(id);
             },
 
             sendDeviceCommand: async (deviceId, command, payload) => {
                 await sendDeviceCommand(deviceId, command, payload);
-                
-                // Also trigger MacroDroid Webhook if we can find the device's webhook ID
-                // For now, we use a simple lookup (this could be in user settings later)
+
                 if (deviceId) {
-                    const identifier = command.toLowerCase(); // 'answer_call' or 'reject_call'
-                    // MacroDroid Webhook pattern: https://trigger.macrodroid.com/[MACRODROID_ID]/[IDENTIFIER]
-                    // This is a direct trigger for real-time response
+                    const identifier = command.toLowerCase();
                     console.log(`Sending remote command to device ${deviceId}: ${identifier}`);
-                    
-                    // Note: In a production environment, this would be triggered from a Cloud Function 
-                    // for security, but for a direct bridge, we can call it if we have the ID.
                 }
             },
 
@@ -126,20 +142,19 @@ const useStore = create(
                     await clearIncomingCallsFromFirestore(businessId);
                 }
             },
+
             updateIncomingCall: (id, updates) => set((state) => ({
-                incomingCalls: state.incomingCalls.map(c => c.id === id ? { ...c, ...updates } : c)
+                incomingCalls: state.incomingCalls.map((c) => (c.id === id ? { ...c, ...updates } : c))
             })),
 
-            // Firestore Sync Initialization
             initFirestoreSync: () => {
                 const user = get().currentUser;
                 if (!user) return;
 
                 try {
-                    // Clean up any existing listeners correctly
                     const currentUnsubs = get().unsubscribers;
                     if (currentUnsubs && currentUnsubs.length > 0) {
-                        currentUnsubs.forEach(unsub => {
+                        currentUnsubs.forEach((unsub) => {
                             if (typeof unsub === 'function') unsub();
                         });
                     }
@@ -149,18 +164,16 @@ const useStore = create(
 
                     const userRole = (user.role || '').toLowerCase();
 
-                    // Helper to add unsubs
                     const addUnsub = (unsub) => {
                         if (typeof unsub === 'function') unsubs.push(unsub);
                     };
 
                     const errorHandler = (err) => {
-                        console.error("Sync error:", err);
-                        set({ syncError: err.message || "Veri senkronizasyon hatası" });
-                        get().addNotification("Veri bağlantısı hatası: " + (err.message || "Check connection"), "error");
+                        console.error('Sync error:', err);
+                        set({ syncError: err.message || 'Veri senkronizasyon hatası' });
+                        get().addNotification('Veri bağlantısı hatası: ' + (err.message || 'Check connection'), 'error');
                     };
 
-                    // Sync self profile/settings
                     addUnsub(subscribeToUser(user.id, (userData) => {
                         if (userData) {
                             set((state) => {
@@ -189,10 +202,20 @@ const useStore = create(
                         return;
                     }
 
-                    addUnsub(subscribeToCollection('users', (data) => set({ businesses: data }), null, { field: 'role', operator: '==', value: 'admin', onError: errorHandler }));
+                    addUnsub(subscribeToCollection('users', (data) => set({ businesses: data }), null, {
+                        field: 'role',
+                        operator: '==',
+                        value: 'admin',
+                        onError: errorHandler
+                    }));
 
                     if (userRole === 'customer') {
-                        addUnsub(subscribeToCollection('orders', (data) => set({ orders: data }), 'timestamp', { field: 'customerId', operator: '==', value: user.id, onError: errorHandler }));
+                        addUnsub(subscribeToCollection('orders', (data) => set({ orders: data }), 'timestamp', {
+                            field: 'customerId',
+                            operator: '==',
+                            value: user.id,
+                            onError: errorHandler
+                        }));
                         set({ unsubscribers: unsubs, isSyncing: false });
                         return;
                     }
@@ -200,7 +223,10 @@ const useStore = create(
                     const businessId = userRole === 'admin' ? user.id : user.businessId;
 
                     if (!businessId) {
-                        console.warn("initFirestoreSync: businessId is missing for role requiring it, skipping detailed sync", { userRole, userId: user.id });
+                        console.warn('initFirestoreSync: businessId is missing for role requiring it, skipping detailed sync', {
+                            userRole,
+                            userId: user.id
+                        });
                         set({ unsubscribers: unsubs, isSyncing: false });
                         return;
                     }
@@ -223,13 +249,13 @@ const useStore = create(
                         get().checkAutoSuspensions();
                     }, 3000);
                 } catch (err) {
-                    console.error("initFirestoreSync crashed:", err);
+                    console.error('initFirestoreSync crashed:', err);
                     set({
-                        syncError: err?.message || "Veri senkronizasyon hatası",
+                        syncError: err?.message || 'Veri senkronizasyon hatası',
                         isSyncing: false,
                         unsubscribers: []
                     });
-                    get().addNotification("Veri bağlantısı hatası: " + (err?.message || "Check connection"), "error");
+                    get().addNotification('Veri bağlantısı hatası: ' + (err?.message || 'Check connection'), 'error');
                 }
             },
 
@@ -241,7 +267,7 @@ const useStore = create(
                 if (duration > 0) {
                     setTimeout(() => {
                         set((state) => ({
-                            notifications: state.notifications.filter(n => n.id !== id)
+                            notifications: state.notifications.filter((n) => n.id !== id)
                         }));
                     }, duration);
                 }
@@ -249,7 +275,7 @@ const useStore = create(
 
             removeNotification: (id) => {
                 set((state) => ({
-                    notifications: state.notifications.filter(n => n.id !== id)
+                    notifications: state.notifications.filter((n) => n.id !== id)
                 }));
             },
 
@@ -258,10 +284,13 @@ const useStore = create(
                     set({ products: [] });
                     return;
                 }
-                subscribeToCollection('products', (data) => set({ products: data }), 'timestamp', { field: 'businessId', operator: '==', value: businessId });
+                subscribeToCollection('products', (data) => set({ products: data }), 'timestamp', {
+                    field: 'businessId',
+                    operator: '==',
+                    value: businessId
+                });
             },
 
-            // Actions: Entities
             setSubscribers: (subscribers) => set({ subscribers }),
 
             addSubscriber: async (subscriber) => {
@@ -291,6 +320,10 @@ const useStore = create(
 
             updateProduct: async (productId, data) => {
                 await updateProductInFirestore(productId, data);
+            },
+
+            deleteProduct: async (productId) => {
+                await deleteProductFromFirestore(productId);
             },
 
             addSupplier: async (supplier) => {
@@ -332,12 +365,11 @@ const useStore = create(
                 await deleteCategoryFromFirestore(categoryId);
             },
 
-            // Actions: Products & Stock
             updateStock: async (productId, quantity) => {
-                const product = get().products.find(p => p.id === productId);
+                const product = get().products.find((p) => p.id === productId);
                 if (!product) return;
 
-                const category = get().categories.find(c => c.id === product.type);
+                const category = get().categories.find((c) => c.id === product.type);
                 const categoryLabel = (category?.label || '').toLowerCase();
                 const isTrackingEmpty = categoryLabel.includes('damacana') || categoryLabel.includes('tüp');
 
@@ -349,7 +381,6 @@ const useStore = create(
                 await updateProductInFirestore(productId, updates);
             },
 
-            // Actions: Orders
             addOrder: async (order) => {
                 const now = new Date();
                 const datePart = `${now.getFullYear().toString().slice(-2)}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
@@ -358,16 +389,19 @@ const useStore = create(
 
                 const newOrder = {
                     ...order,
-                    orderNumber: orderNumber,
+                    orderNumber,
                     status: 'Hazırlanıyor',
                     timestamp: now.toISOString()
                 };
-                const businessId = order.businessId || (get().currentUser?.role === 'admin' ? get().currentUser?.id : get().currentUser?.businessId);
+
+                const businessId =
+                    order.businessId ||
+                    (get().currentUser?.role === 'admin' ? get().currentUser?.id : get().currentUser?.businessId);
+
                 newOrder.businessId = businessId;
 
                 const docRef = await addOrderToFirestore(newOrder);
 
-                // Notify business about new order
                 if (businessId) {
                     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
                     fetch(`${apiUrl}/api/send-notification`, {
@@ -375,10 +409,10 @@ const useStore = create(
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             targetUserId: businessId,
-                            title: 'Yeni Sipariş Alındı! 🛍️',
+                            title: 'Yeni Sipariş Alındı!',
                             body: `${newOrder.customer} tarafından yeni bir sipariş oluşturuldu: ${newOrder.product}`
                         })
-                    }).catch(e => console.log("Push error:", e));
+                    }).catch((e) => console.log('Push error:', e));
                 }
 
                 return docRef;
@@ -389,84 +423,30 @@ const useStore = create(
             },
 
             updateOrderStatus: async (orderId, status) => {
-                if (typeof orderId === 'string') {
-                    const order = get().orders.find(o => o.id === orderId);
-                    if (!order) return;
+                if (typeof orderId !== 'string') return;
 
-                    const prevStatus = order.status;
-                    await updateOrderStatusInFirestore(orderId, status);
+                const order = get().orders.find((o) => o.id === orderId);
+                if (!order) return;
 
-                    // 0. Stock Logic for Damacana/Tüp
-                    if (status === 'Tamamlandı' && prevStatus !== 'Tamamlandı') {
-                        const product = get().products.find(p => p.id === order.productId);
-                        if (product) {
-                            const category = get().categories.find(c => c.id === product.type);
-                            const categoryLabel = (category?.label || '').toLowerCase();
-                            const isTrackingEmpty = categoryLabel.includes('damacana') || categoryLabel.includes('tüp');
+                const prevStatus = order.status;
+                await updateOrderStatusInFirestore(orderId, status);
 
-                            const updates = {
-                                stock: (product.stock || 0) - (order.quantity || 1)
-                            };
+                if (status === 'Tamamlandı' && prevStatus !== 'Tamamlandı') {
+                    const product = get().products.find((p) => p.id === order.productId);
+                    if (product) {
+                        const category = get().categories.find((c) => c.id === product.type);
+                        const categoryLabel = (category?.label || '').toLowerCase();
+                        const isTrackingEmpty = categoryLabel.includes('damacana') || categoryLabel.includes('tüp');
 
-                            if (isTrackingEmpty) {
-                                updates.emptyStock = (product.emptyStock || 0) + (order.quantity || 1);
-                            }
+                        const updates = {
+                            stock: (product.stock || 0) - (order.quantity || 1)
+                        };
 
-                            await updateProductInFirestore(product.id, updates);
+                        if (isTrackingEmpty) {
+                            updates.emptyStock = (product.emptyStock || 0) + (order.quantity || 1);
                         }
-                    }
 
-                    // 1. WhatsApp Hook
-                    if (localStorage.getItem('bayios-pref-sms') === 'true') {
-                        if (order.phone) {
-                            let whatsappMsg = '';
-                            if (status === 'Yolda' || status === 'Kurye Yolda') {
-                                whatsappMsg = `Merhaba ${order.customer} 👋,\n\nBayiOS sisteminden verdiğiniz siparişiniz yola çıkmıştır.\n📌 Tutar: ₺${order.amount}\n🚚 Teslimat: ${order.courier || 'Kurye'}\n\nBizi tercih ettiğiniz için teşekkür ederiz.`;
-                            } else if (status === 'Tamamlandı') {
-                                whatsappMsg = `*Sipariş Teslim Edildi* ✅\n\nSiparişiniz başarıyla teslim edilmiştir. Afiyet olsun!`;
-                            }
-
-                            if (whatsappMsg) {
-                                fetch(`${import.meta.env.VITE_API_URL}/api/send-message`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        clientId: order.businessId,
-                                        to: order.phone,
-                                        message: whatsappMsg
-                                    })
-                                }).catch(err => console.log('WhatsApp hook error:', err));
-                            }
-                        }
-                    }
-
-                    // 2. Firebase Push Notification
-                    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-                    
-                    // Notify Customer on status change
-                    if (order.customerId) {
-                        fetch(`${apiUrl}/api/send-notification`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                targetUserId: order.customerId,
-                                title: 'Sipariş Durumu Güncellendi',
-                                body: `Siparişiniz şu an: ${status}`
-                            })
-                        }).catch(e => console.log("Push error:", e));
-                    }
-
-                    // Notify Business (Admin) on completion
-                    if (status === 'Tamamlandı' && order.businessId) {
-                        fetch(`${apiUrl}/api/send-notification`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                targetUserId: order.businessId,
-                                title: 'Sipariş Teslim Edildi',
-                                body: `${order.customer} isimli müşteriye ₺${order.amount} tutarındaki sipariş başarıyla teslim edildi.`
-                            })
-                        }).catch(e => console.log("Push error:", e));
+                        await updateProductInFirestore(product.id, updates);
                     }
                 }
             },
@@ -477,7 +457,6 @@ const useStore = create(
                 }
             },
 
-            // Actions: Accounting & Expenses
             addExpense: async (expense) => {
                 await addExpenseToFirestore({ ...expense, businessId: get().getBusinessId() });
             },
@@ -497,12 +476,11 @@ const useStore = create(
 
                 for (const sub of subscribers) {
                     if (sub.status === 'Active') {
-                        const subOrders = orders.filter(o => o.customerId === sub.id && o.status === 'Tamamlandı');
+                        const subOrders = orders.filter((o) => o.customerId === sub.id && o.status === 'Tamamlandı');
                         if (subOrders.length > 0) {
                             const lastOrder = subOrders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
                             const lastOrderDate = new Date(lastOrder.timestamp);
                             if (now - lastOrderDate > fiftyDaysMs) {
-                                console.log(`Auto-suspending subscriber ${sub.name} (ID: ${sub.id}) - last order was ${lastOrderDate}`);
                                 await updateSubscriber(sub.id, { status: 'Suspended' });
                             }
                         }
@@ -514,35 +492,28 @@ const useStore = create(
                 const user = get().currentUser;
                 if (!user) return;
 
-                // Create a deep-ish clone for settings to handle nested updates if provided as an object
                 const newSettings = {
                     ...(user.settings || {}),
                     ...(updates.settings || {})
                 };
 
-                // Create newUser starting with current user and merged updates
                 const newUser = {
                     ...user,
                     ...updates,
                     settings: newSettings
                 };
 
-                // Also resolve dot notation for local state if keys like "settings.zoomLevel" were used
-                Object.keys(updates).forEach(key => {
+                Object.keys(updates).forEach((key) => {
                     if (key.includes('.')) {
                         const parts = key.split('.');
                         if (parts[0] === 'settings' && parts.length === 2) {
                             newUser.settings[parts[1]] = updates[key];
-                            // Remove the dot-notation key from the root of the new object to keep it clean
                             delete newUser[key];
                         }
                     }
                 });
 
                 set({ currentUser: newUser });
-
-                // For Firestore, we send only the updates provided. 
-                // updateDoc handles dot notation (e.g. "settings.zoomLevel") correctly.
                 await updateUserInFirestore(user.id, updates);
             },
 
@@ -552,12 +523,8 @@ const useStore = create(
         }),
         {
             name: 'bayios-storage',
-            getStorage: () => localStorage,
+            getStorage: () => createSafeStorage(),
             partialize: (state) => {
-                // IMPORTANT: We only persist essential lightweight states.
-                // Bulky data like orders/subscribers should NOT be in localStorage
-                // as they exceed 5MB limit and cause the app to fail intermittently.
-                // Firestore has its own built-in persistence now.
                 return {
                     currentUser: state.currentUser,
                     notifications: state.notifications,
