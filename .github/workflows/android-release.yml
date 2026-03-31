@@ -53,7 +53,8 @@ jobs:
           EOF
 
       - name: Ensure Gradle wrapper is executable
-        run: chmod +x android/gradlew
+        working-directory: android
+        run: chmod +x ./gradlew
 
       - name: Build signed release APK and AAB
         working-directory: android
