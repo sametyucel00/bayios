@@ -30,6 +30,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const DeveloperPanel = lazy(() => import('./pages/DeveloperPanel'));
 const Dealers = lazy(() => import('./pages/Dealers'));
+const shouldAutoInitNativeServices = false;
 
 const isDebugLoggingEnabled = import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true';
 
@@ -68,6 +69,11 @@ function App() {
 
   useEffect(() => {
     if (storeUser?.id) {
+      if (Capacitor.isNativePlatform() && !shouldAutoInitNativeServices) {
+        console.warn('Native notification auto-init is disabled for stability.');
+        return;
+      }
+
       import('./services/notificationService').then(({ requestNotificationPermission, onMessageListener }) => {
         requestNotificationPermission(storeUser.id);
         onMessageListener().then(payload => {
@@ -225,6 +231,11 @@ function App() {
     let watchId;
     let isCancelled = false;
     const userRole = storeUser.role?.toLowerCase();
+
+    if (Capacitor.isNativePlatform() && !shouldAutoInitNativeServices) {
+      console.warn('Native location auto-init is disabled for stability.');
+      return () => {};
+    }
 
     if (userRole === 'courier' || userRole === 'admin' || userRole === 'customer') {
       import('./services/locationService').then(async ({ startLocationTracking, stopLocationTracking }) => {
