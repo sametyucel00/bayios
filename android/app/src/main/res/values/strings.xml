@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BayiOS</string>
+    <string name="title_activity_main">BayiOS</string>
+    <string name="package_name">com.bayios.app</string>
+    <string name="custom_url_scheme">com.bayios.app</string>
+</resources>
