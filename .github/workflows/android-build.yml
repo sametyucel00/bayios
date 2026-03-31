@@ -40,7 +40,8 @@ jobs:
         run: npm run android:sync
 
       - name: Ensure Gradle wrapper is executable
-        run: chmod +x android/gradlew
+        working-directory: android
+        run: chmod +x ./gradlew
 
       - name: Build Android debug APK
         working-directory: android
