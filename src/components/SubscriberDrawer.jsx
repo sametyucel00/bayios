@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XCircle, User, Phone, MapPin, Hash, Package, Calendar, RefreshCw, CreditCard, ShieldCheck, Zap, Info, UserPlus, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { XCircle, User, Phone, MapPin, Hash, Package, Calendar, RefreshCw, CreditCard, ShieldCheck, Zap, Info, UserPlus, CheckCircle, Plus, Trash2, StickyNote } from 'lucide-react';
 import useStore from '../store/useStore';
 
 const plans = [
@@ -21,6 +21,7 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
         name: '', phone: '', address: '', legacyId: '', plan: 'Haftalık', product: '', quantity: 1, limit: 2000, status: 'Active',
         nextDelivery: new Date().toISOString().split('T')[0],
         isCorporate: false,
+        notes: '',
         items: [{ productId: '', quantity: 1 }]
     });
 
@@ -33,6 +34,8 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
         return date.toISOString().split('T')[0];
     }, []);
 
+    const normalizeText = (value) => String(value ?? '').trim().toLocaleLowerCase('tr-TR');
+
     useEffect(() => {
         if (subscriber) {
             let initialItems = [{ productId: '', quantity: 1 }];
@@ -43,9 +46,9 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                 }));
             } else if (subscriber.product) {
                 // Try to find product ID by name, handle comma-separated names
-                const productNames = subscriber.product.split(',').map(n => n.trim());
+                const productNames = String(subscriber.product || '').split(',').map(n => n.trim());
                 initialItems = productNames.map(name => {
-                    const prod = products.find(p => p.name.toLowerCase() === name.toLowerCase());
+                    const prod = products.find(p => normalizeText(p?.name) === normalizeText(name));
                     return {
                         productId: prod ? prod.id : '',
                         quantity: subscriber.quantity || 1, // Fallback to subscriber quantity if single item
@@ -70,6 +73,7 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                 status: subscriber.status || 'Active',
                 nextDelivery: subscriber.nextDelivery || subscriber.nextRenewal || (subscriber.plan === 'Yok' ? '' : new Date().toISOString().split('T')[0]),
                 isCorporate: subscriber.isCorporate || false,
+                notes: subscriber.notes || '',
                 items: initialItems
             });
         } else {
@@ -77,6 +81,7 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                 name: '', phone: '', address: '', legacyId: '', plan: 'Haftalık', product: '', quantity: 1, limit: 2000, status: 'Active',
                 nextDelivery: calculateNextDelivery('Haftalık'),
                 isCorporate: false,
+                notes: '',
                 items: [{ productId: '', quantity: 1 }]
             });
         }
@@ -163,7 +168,7 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                                 <div className="relative group text-slate-950">
                                     <User className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-primary transition-colors" size={20} />
                                     <input
-                                        type="text" required
+                                        type="text"
                                         placeholder="Müşteri tam adı"
                                         className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-black text-slate-800 shadow-inner text-sm"
                                         value={formData.name}
@@ -178,7 +183,7 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                                     <div className="relative group">
                                         <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-primary transition-colors" size={20} />
                                         <input
-                                            type="tel" required
+                                            type="tel"
                                             placeholder="05..."
                                             className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-black text-slate-800 shadow-inner text-sm"
                                             value={formData.phone}
@@ -207,11 +212,23 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                                 <div className="relative group">
                                     <MapPin className="absolute left-5 top-6 text-slate-300 group-focus-within:text-brand-primary transition-colors" size={20} />
                                     <textarea
-                                        required
                                         placeholder="Abone açık adresi..."
                                         className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-black text-slate-800 shadow-inner resize-none h-28 text-sm"
                                         value={formData.address}
                                         onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ABONE NOTU</label>
+                                <div className="relative group">
+                                    <StickyNote className="absolute left-5 top-6 text-slate-300 group-focus-within:text-brand-primary transition-colors" size={20} />
+                                    <textarea
+                                        placeholder="Teslimat notu, bina girişi, özel açıklama..."
+                                        className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-black text-slate-800 shadow-inner resize-none h-28 text-sm"
+                                        value={formData.notes}
+                                        onChange={e => setFormData({ ...formData, notes: e.target.value })}
                                     />
                                 </div>
                             </div>
@@ -227,7 +244,6 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                                              <div className="flex-1 relative group">
                                                  <Package className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-primary transition-colors" size={20} />
                                                  <select
-                                                     required
                                                      className="w-full pl-14 pr-6 py-5 bg-white border-2 border-transparent rounded-[1.5rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-black text-slate-800 shadow-inner text-sm appearance-none cursor-pointer"
                                                      value={item.productId}
                                                      onChange={e => handleUpdateItem(index, 'productId', e.target.value)}
@@ -242,7 +258,7 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                                                  <div className="flex-1 relative group">
                                                      <Zap className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-primary transition-colors" size={20} />
                                                      <input
-                                                         type="number" required min="1"
+                                                         type="number" min="1"
                                                          className="w-full pl-12 pr-4 py-5 bg-white border-2 border-transparent rounded-[1.5rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-black text-slate-800 shadow-inner text-sm"
                                                          value={item.quantity}
                                                          onChange={e => handleUpdateItem(index, 'quantity', parseInt(e.target.value) || 1)}
@@ -323,7 +339,6 @@ const SubscriberDrawer = ({ isOpen, onClose, onSave, subscriber = null }) => {
                                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                                         <input
                                             type="date" 
-                                            required={formData.plan !== 'Yok'}
                                             className={`w-full pl-12 pr-4 py-4 bg-white/5 border-2 border-white/10 rounded-2xl outline-none focus:border-brand-primary focus:bg-white/10 transition-all font-black text-white text-[11px] sm:text-xs ${formData.plan === 'Yok' ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             disabled={formData.plan === 'Yok'}
                                             value={formData.nextDelivery}

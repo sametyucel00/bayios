@@ -1,7 +1,7 @@
 import React from 'react';
-import { Package, Info, PlusCircle, Edit } from 'lucide-react';
+import { Package, Info, PlusCircle, Edit, Trash2 } from 'lucide-react';
 
-const ProductCard = ({ product, onAddStock, onEdit, categoryLabel }) => {
+const ProductCard = ({ product, onAddStock, onEdit, onDelete, categoryLabel }) => {
     return (
         <div className="premium-card group overflow-hidden flex flex-col h-full bg-white transition-all duration-300 hover:scale-[1.02] border border-slate-100">
             <div className="h-40 md:h-56 bg-slate-50 flex items-center justify-center relative overflow-hidden">
@@ -58,7 +58,7 @@ const ProductCard = ({ product, onAddStock, onEdit, categoryLabel }) => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-5 gap-2">
                         <button
                             onClick={() => onAddStock(product)}
                             className="col-span-3 bg-brand-primary text-white font-black py-3 rounded-xl text-[10px] flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-primary/10 active:scale-95 uppercase"
@@ -70,6 +70,13 @@ const ProductCard = ({ product, onAddStock, onEdit, categoryLabel }) => {
                             className="col-span-1 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center transition-all hover:bg-slate-200 active:scale-90 border border-slate-200"
                         >
                             <Edit size={16} />
+                        </button>
+                        <button
+                            onClick={() => onDelete(product)}
+                            className="col-span-1 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center transition-all hover:bg-rose-500 hover:text-white active:scale-90 border border-rose-100"
+                            title="Ürünü Sil"
+                        >
+                            <Trash2 size={16} />
                         </button>
                     </div>
                 </div>

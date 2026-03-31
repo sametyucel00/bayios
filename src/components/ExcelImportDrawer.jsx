@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { XCircle, Upload, FileSpreadsheet, CheckCircle, AlertTriangle, ChevronRight, Search, User, Phone, Hash, ArrowRight, ShieldCheck, Download, Trash2, Info, Zap } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import useStore from '../store/useStore';
@@ -62,6 +62,7 @@ const ExcelImportDrawer = ({ isOpen, onClose, onImport, subscribers }) => {
                     product: row['Ürün'] || row['Paket'] || row['Plan'] || 'Damacana Su',
                     quantity: parseInt(row['Adet'] || row['Miktar']) || 1,
                     legacyId: row['Eski No'] || row['Abone No'] || row['ID'] || '',
+                    notes: String(row['Notlar'] || row['Not'] || row['Açıklama'] || row['Aciklama'] || ''),
                     plan: row['Plan'] || row['Paket'] || 'Haftalık',
                     limit: row['Limit'] || 2000,
                     status: 'Active',
@@ -117,7 +118,7 @@ const ExcelImportDrawer = ({ isOpen, onClose, onImport, subscribers }) => {
                             <FileSpreadsheet size={32} />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase leading-tight">VERİ AKTARIM SİHİRBAZI</h3>
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase leading-tight">Veri Aktarim Sihirbazi</h3>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">HIZLI EXCEL & CSV İŞLEME PANELİ</p>
                         </div>
                     </div>
@@ -174,7 +175,7 @@ const ExcelImportDrawer = ({ isOpen, onClose, onImport, subscribers }) => {
                                     <Info size={14} /> ŞABLON STANDARTLARI
                                 </h4>
                                 <div className="grid grid-cols-2 gap-4">
-                                    {['Abone Bilgisi', 'Telefon', 'Adres', 'Ürün', 'Adet', 'Eski No', 'İşletme'].map(field => (
+                                    {['Abone Bilgisi', 'Telefon', 'Adres', 'Ürün', 'Adet', 'Eski No', 'İşletme', 'Notlar'].map(field => (
                                         <div key={field} className="flex items-center gap-3 text-white/60">
                                             <div className="w-1.5 h-1.5 rounded-full bg-brand-primary"></div>
                                             <span className="text-[11px] font-black uppercase tracking-widest">{field}</span>
@@ -223,6 +224,7 @@ const ExcelImportDrawer = ({ isOpen, onClose, onImport, subscribers }) => {
                                                 <th className="px-8 py-5">ÜRÜN</th>
                                                 <th className="px-8 py-5">ADET</th>
                                                 <th className="px-8 py-5">İŞLETME</th>
+                                                <th className="px-8 py-5">NOT</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100/50 bg-white">
@@ -239,6 +241,9 @@ const ExcelImportDrawer = ({ isOpen, onClose, onImport, subscribers }) => {
                                                         ) : (
                                                             <span className="text-[9px] font-black bg-slate-50 text-slate-300 px-3 py-1.5 rounded-lg uppercase tracking-widest">BİREYSEL</span>
                                                         )}
+                                                    </td>
+                                                    <td className="px-8 py-5 text-[10px] font-bold text-slate-400 max-w-[180px]">
+                                                        <span className="line-clamp-2 break-words">{row.notes || '-'}</span>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -310,3 +315,7 @@ const ExcelImportDrawer = ({ isOpen, onClose, onImport, subscribers }) => {
 };
 
 export default ExcelImportDrawer;
+
+
+
+

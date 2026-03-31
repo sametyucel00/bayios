@@ -4,6 +4,7 @@ import useStore from '../store/useStore';
 import { updateLocationInFirestore } from '../services/firestoreService';
 import GoogleMapTracker from '../components/GoogleMapTracker';
 import { getDirectionsTarget, pickFirstValidLocation } from '../utils/location';
+import { calculateOrderTotals, createOrderItemDraft, hydrateOrderItemWithProduct } from '../utils/orderPricing';
 const CourierPortal = ({ user, onLogout }) => {
     const { orders, updateOrder, addOrder, products, subscribers, businesses } = useStore();
     const [activeTab, setActiveTab] = useState('tasks');
@@ -35,7 +36,7 @@ const CourierPortal = ({ user, onLogout }) => {
     // Stock/Reconciliation State
     const [reconTab, setReconTab] = useState('morning');
     const [reconDealerId, setReconDealerId] = useState('');
-    const [reconItems, setReconItems] = useState([{ productId: '', quantity: 1 }]);
+    const [reconItems, setReconItems] = useState([createOrderItemDraft()]);
     const [reconPaymentMethod, setReconPaymentMethod] = useState('Nakit');
     const [reconAmount, setReconAmount] = useState(0);
 
@@ -390,7 +391,7 @@ const CourierPortal = ({ user, onLogout }) => {
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Teslim Edilen Ürünler</label>
-                                <button onClick={() => setReconItems([...reconItems, { productId: '', quantity: 1 }])} className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-1">
+                                <button onClick={() => setReconItems([...reconItems, createOrderItemDraft()])} className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-1">
                                     <Plus size={12}/> Ekle
                                 </button>
                             </div>
@@ -426,6 +427,21 @@ const CourierPortal = ({ user, onLogout }) => {
                                             />
                                         </div>
                                     </div>
+                                    {Number(products.find((product) => product.id === item.productId)?.depositFee || 0) > 0 && (
+                                        <label className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-orange-100 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-orange-600">
+                                            <span>Depozito Var</span>
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 accent-orange-500"
+                                                checked={Boolean(item.includeDeposit)}
+                                                onChange={(e) => {
+                                                    const nItems = [...reconItems];
+                                                    nItems[idx].includeDeposit = e.target.checked;
+                                                    setReconItems(nItems);
+                                                }}
+                                            />
+                                        </label>
+                                    )}
                                     {reconItems.length > 1 && (
                                         <button 
                                             onClick={() => setReconItems(reconItems.filter((_, i) => i !== idx))} 
@@ -470,15 +486,22 @@ const CourierPortal = ({ user, onLogout }) => {
                                     return; 
                                 }
                                 const selectedDealer = dealers.find(d => d.id === reconDealerId);
-                                const prodsText = reconItems.map(ri => { const p = products.find(x => x.id === ri.productId); return p ? `${ri.quantity}x ${p.name}` : ''; }).filter(Boolean).join(', ');
+                                const normalizedItems = reconItems.map((ri) => {
+                                    const product = products.find(x => x.id === ri.productId);
+                                    return product ? hydrateOrderItemWithProduct(product, { quantity: ri.quantity, includeDeposit: Boolean(ri.includeDeposit) }) : null;
+                                }).filter(Boolean);
+                                const totals = calculateOrderTotals(normalizedItems);
+                                const prodsText = normalizedItems.map(ri => `${ri.quantity}x ${ri.name}${ri.includeDeposit ? ' (Depozitolu)' : ''}`).join(', ');
                                 
                                 await addOrder({
                                     customer: selectedDealer.name,
                                     customerId: selectedDealer.id,
                                     product: `(BAYİ TESLİMATI) ${prodsText}`,
-                                    items: reconItems,
-                                    quantity: reconItems.reduce((a, b) => a + b.quantity, 0),
-                                    amount: reconAmount,
+                                    items: normalizedItems,
+                                    quantity: totals.quantity,
+                                    amount: reconAmount || totals.amount,
+                                    productTotal: totals.productTotal,
+                                    depositTotal: totals.depositTotal,
                                     paymentMethod: reconPaymentMethod,
                                     status: "Tamamlandı",
                                     courier: user?.name || 'Kurye',
@@ -508,7 +531,7 @@ const CourierPortal = ({ user, onLogout }) => {
                                 setReconDealerId('');
                                 setReconAmount(0);
                                 setReconPaymentMethod('Nakit');
-                                setReconItems([{ productId: '', quantity: 1 }]);
+                                setReconItems([createOrderItemDraft()]);
                                 setActiveTab('tasks');
                             }}
                             className="w-full bg-slate-900 text-white rounded-2xl py-5 font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all"

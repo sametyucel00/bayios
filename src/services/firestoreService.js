@@ -234,8 +234,9 @@ export const subscribeToCollection = (collectionName, callback, orderField = 'ti
     try {
         return onSnapshot(q, (snapshot) => {
             let data = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
+                ...doc.data(),
+                firestoreId: doc.id,
+                id: doc.data().id ?? doc.id
             }));
 
             if (orderField) {

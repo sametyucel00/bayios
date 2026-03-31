@@ -93,6 +93,7 @@ const Finance = () => {
     const pendingCollectionFilter = filteredOrders
         .filter(o => o.paymentMethod === 'Veresiye')
         .reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
+    const depositIncome = filteredOrders.reduce((acc, o) => acc + (Number(o.depositTotal) || 0), 0);
 
     // Expenses based on filter
     const filteredExpenses = expenses.reduce((acc, exp) => {
@@ -132,7 +133,7 @@ const Finance = () => {
             </div>
 
             {/* Top Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5 mb-8">
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                     <div className="flex justify-between items-start mb-3">
                         <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
@@ -173,6 +174,16 @@ const Finance = () => {
                     </div>
                     <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Pasif Alacak</p>
                     <h3 className="text-xl font-black text-slate-900 font-display">₺{pendingCollectionFilter.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</h3>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="p-2 bg-orange-50 text-orange-600 rounded-xl">
+                            <PieChart size={20} />
+                        </div>
+                    </div>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Depozito Geliri</p>
+                    <h3 className="text-xl font-black text-slate-900 font-display">₺{depositIncome.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</h3>
                 </div>
             </div>
 

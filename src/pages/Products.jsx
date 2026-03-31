@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Plus, Search, Filter, Calculator, Truck, Banknote, RefreshCw, XCircle, Package, Image as ImageIcon, Edit2, Upload, Settings2, Trash2 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import ProductExcelImportDrawer from '../components/ProductExcelImportDrawer';
@@ -6,11 +6,11 @@ import useStore from '../store/useStore';
 
 
 const Products = () => {
-    const { products, updateStock, addProduct, updateProduct, categories: storeCategories, addCategory, deleteCategory } = useStore();
+    const { products, updateStock, addProduct, updateProduct, deleteProduct, categories: storeCategories, addCategory, deleteCategory } = useStore();
 
     // Prepare display categories
     const displayCategories = [
-        { id: 'all', label: 'Tümü' },
+        { id: 'all', label: 'TÃ¼mÃ¼' },
         ...storeCategories.map(c => ({ id: c.id, label: c.label }))
     ];
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -21,8 +21,8 @@ const Products = () => {
             damacana: 'Damacana',
             pet: 'PET Grubu',
             bardak: 'Bardak Su',
-            tube: 'Tüp Grubu',
-            filter: 'Arıtma/Filtre',
+            tube: 'TÃ¼p Grubu',
+            filter: 'ArÄ±tma/Filtre',
             equipment: 'Ekipman'
         };
         return storeCategories.find(c => c.id === type)?.label || legacy[type] || type || 'Genel';
@@ -40,7 +40,6 @@ const Products = () => {
         quantity: '',
         buyPrice: '',
         transportCost: '0',
-        profitMargin: '30',
         depositFee: '0',
         price: ''
     });
@@ -67,7 +66,6 @@ const Products = () => {
             quantity: '',
             buyPrice: '',
             transportCost: '0',
-            profitMargin: '30',
             depositFee: product.depositFee || '0',
             price: product.price || ''
         });
@@ -127,12 +125,28 @@ const Products = () => {
     const handleDeleteCategory = async (id) => {
         if (deleteConfirmId === id) {
             await deleteCategory(id);
-            useStore.getState().addNotification('Kategori başarıyla silindi.', 'success');
+            useStore.getState().addNotification('Kategori baÅŸarÄ±yla silindi.', 'success');
             setDeleteConfirmId(null);
         } else {
             setDeleteConfirmId(id);
-            useStore.getState().addNotification('Silmek için tekrar tıklayın.', 'warning');
+            useStore.getState().addNotification('Silmek iÃ§in tekrar tÄ±klayÄ±n.', 'warning');
             setTimeout(() => setDeleteConfirmId(null), 3000);
+        }
+    };
+
+    const handleDeleteProduct = async (product) => {
+        if (!product?.id) return;
+
+        if (deleteConfirmId === product.id) {
+            await deleteProduct(product.id);
+            useStore.getState().addNotification('ÃœrÃ¼n baÅŸarÄ±yla silindi.', 'success');
+            setDeleteConfirmId(null);
+        } else {
+            setDeleteConfirmId(product.id);
+            useStore.getState().addNotification('ÃœrÃ¼nÃ¼ silmek iÃ§in tekrar tÄ±klayÄ±n.', 'warning');
+            setTimeout(() => {
+                setDeleteConfirmId(current => current === product.id ? null : current);
+            }, 3000);
         }
     };
 
@@ -180,7 +194,7 @@ const Products = () => {
             });
             setIsStockDrawerOpen(false);
             setEntryData({
-                quantity: '', buyPrice: '', transportCost: '0', profitMargin: '30', depositFee: '0', price: ''
+                quantity: '', buyPrice: '', transportCost: '0', depositFee: '0', price: ''
             });
         }
     };
@@ -190,15 +204,15 @@ const Products = () => {
         const qty = parseFloat(data.quantity) || 0;
         const buy = parseFloat(data.buyPrice) || 0;
         const transport = parseFloat(data.transportCost) || 0;
-        const margin = parseFloat(data.profitMargin) || 0;
+        const salePrice = parseFloat(data.price) || 0;
 
-        if (qty === 0) return { totalCost: 0, unitCost: 0, suggestedPrice: 0 };
+        if (qty === 0) return { totalCost: 0, unitCost: 0, profitRate: 0 };
 
         const totalCost = (qty * buy) + transport;
         const unitCost = totalCost / qty;
-        const suggestedPrice = unitCost * (1 + margin / 100);
+        const profitRate = unitCost > 0 ? ((salePrice - unitCost) / unitCost) * 100 : 0;
 
-        return { totalCost, unitCost, suggestedPrice };
+        return { totalCost, unitCost, profitRate };
     };
 
     const stockEntryPreview = calculatePreview(entryData);
@@ -214,8 +228,8 @@ const Products = () => {
         <div className="p-4 md:p-10 bg-slate-50 min-h-screen pb-24 md:pb-10 w-full overflow-hidden">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight font-display">Ürün & Stok</h1>
-                    <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Stok Yükleme ve Analiz Paneli</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight font-display">ÃœrÃ¼n & Stok</h1>
+                    <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Stok YÃ¼kleme ve Analiz Paneli</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
                     <div className="flex gap-2">
@@ -236,7 +250,7 @@ const Products = () => {
                         onClick={() => setIsCreateDrawerOpen(true)}
                         className="w-full bg-slate-900 text-white px-6 py-4 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-900/10 hover:bg-brand-primary active:scale-95 flex items-center justify-center gap-2"
                     >
-                        <Plus size={18} /> YENİ ÜRÜN EKLE
+                        <Plus size={18} /> YENÄ° ÃœRÃœN EKLE
                     </button>
                 </div>
             </div>
@@ -246,7 +260,7 @@ const Products = () => {
                 {storeCategories.map(cat => {
                     const catProducts = products.filter(p => p.type === cat.id);
                     const totalStock = catProducts.reduce((acc, p) => acc + (p.stock || 0), 0);
-                    const isTracking = cat.label.toLowerCase().includes('damacana') || cat.label.toLowerCase().includes('tüp');
+                    const isTracking = cat.label.toLowerCase().includes('damacana') || cat.label.toLowerCase().includes('tÃ¼p');
                     const totalEmpty = isTracking ? catProducts.reduce((acc, p) => acc + (p.emptyStock || 0), 0) : 0;
 
                     return (
@@ -254,12 +268,12 @@ const Products = () => {
                             <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 truncate">{cat.label}</h4>
                             <div className="flex items-end justify-between">
                                 <div>
-                                    <div className="text-xl font-black text-slate-900 font-display">{catProducts.length} <span className="text-[10px] text-slate-400">Ürün</span></div>
+                                    <div className="text-xl font-black text-slate-900 font-display">{catProducts.length} <span className="text-[10px] text-slate-400">ÃœrÃ¼n</span></div>
                                     <div className="text-xs font-bold text-brand-primary">{totalStock} <span className="text-[9px] uppercase tracking-tighter">Dolu</span></div>
                                 </div>
                                 {isTracking && (
                                     <div className="text-right">
-                                        <div className="text-xs font-bold text-rose-500">{totalEmpty} <span className="text-[9px] uppercase tracking-tighter">Boş</span></div>
+                                        <div className="text-xs font-bold text-rose-500">{totalEmpty} <span className="text-[9px] uppercase tracking-tighter">BoÅŸ</span></div>
                                     </div>
                                 )}
                             </div>
@@ -274,7 +288,7 @@ const Products = () => {
                         <Package size={20} />
                     </div>
                     <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam Ürün</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam ÃœrÃ¼n</p>
                         <h3 className="text-lg md:text-2xl font-black text-slate-900 font-display">{products.length}</h3>
                     </div>
                 </div>
@@ -292,7 +306,7 @@ const Products = () => {
                         <RefreshCw size={20} className="rotate-180" />
                     </div>
                     <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam Boş (İade)</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam BoÅŸ (Ä°ade)</p>
                         <h3 className="text-lg md:text-2xl font-black text-slate-900 font-display">
                             {products.reduce((acc, p) => acc + (p.emptyStock || 0), 0)}
                         </h3>
@@ -303,7 +317,7 @@ const Products = () => {
                         <Calculator size={20} />
                     </div>
                     <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Kategorİ Sayısı</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">KategorÄ° SayÄ±sÄ±</p>
                         <h3 className="text-lg md:text-2xl font-black text-slate-900 font-display">{storeCategories.length}</h3>
                     </div>
                 </div>
@@ -329,7 +343,7 @@ const Products = () => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors" size={16} />
                     <input
                         type="text"
-                        placeholder="Ürün ara..."
+                        placeholder="ÃœrÃ¼n ara..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all text-[11px] font-bold"
@@ -345,6 +359,7 @@ const Products = () => {
                         categoryLabel={getCategoryLabel(product.type)}
                         onAddStock={handleOpenStockModal}
                         onEdit={handleOpenEdit}
+                        onDelete={handleDeleteProduct}
                     />
                 ))}
             </div>
@@ -354,8 +369,8 @@ const Products = () => {
                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Filter className="text-slate-400" size={24} />
                     </div>
-                    <h3 className="text-lg font-medium text-slate-700">Ürün bulunamadı</h3>
-                    <p className="text-slate-500">Arama kriterlerinize uygun ürün yok.</p>
+                    <h3 className="text-lg font-medium text-slate-700">ÃœrÃ¼n bulunamadÄ±</h3>
+                    <p className="text-slate-500">Arama kriterlerinize uygun Ã¼rÃ¼n yok.</p>
                 </div>
             )}
 
@@ -369,8 +384,8 @@ const Products = () => {
                                     <Package size={28} />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">YENİ ÜRÜN</h3>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sisteme yeni ürün kaydı</p>
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">YENÄ° ÃœRÃœN</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sisteme yeni Ã¼rÃ¼n kaydÄ±</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsCreateDrawerOpen(false)} className="p-3 bg-white rounded-2xl text-slate-400 hover:text-slate-600 shadow-sm transition-colors border border-slate-100">
@@ -380,10 +395,10 @@ const Products = () => {
                         <div className="flex-1 overflow-y-auto p-10 scrollbar-hide">
                             <form onSubmit={handleCreateProduct} className="space-y-8">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Adı</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n AdÄ±</label>
                                     <input
                                         type="text" required
-                                        placeholder="Örn: 19L Damacana Su"
+                                        placeholder="Ã–rn: 19L Damacana Su"
                                         className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-bold shadow-inner"
                                         value={newProduct.name}
                                         onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
@@ -404,7 +419,7 @@ const Products = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Görseli (URL)</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n GÃ¶rseli (URL)</label>
                                     <div className="flex gap-4">
                                         <div className="flex-1 relative">
                                             <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
@@ -418,14 +433,14 @@ const Products = () => {
                                         </div>
                                         {newProduct.imageUrl && (
                                             <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-50 shadow-sm">
-                                                <img src={newProduct.imageUrl} alt="Önizleme" className="w-full h-full object-cover" />
+                                                <img src={newProduct.imageUrl} alt="Ã–nizleme" className="w-full h-full object-cover" />
                                             </div>
                                         )}
                                     </div>
                                 </div>
                                 <div className="pt-6">
                                     <button type="submit" className="w-full bg-brand-primary text-white font-black py-6 rounded-[2rem] shadow-xl shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all hover:scale-[1.02] active:scale-95 uppercase tracking-widest text-xs">
-                                        Ürünü Kaydet ve Yayınla
+                                        ÃœrÃ¼nÃ¼ Kaydet ve YayÄ±nla
                                     </button>
                                 </div>
                             </form>
@@ -444,7 +459,7 @@ const Products = () => {
                                     <Edit2 size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">DÜZENLE</h3>
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">DÃœZENLE</h3>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{selectedProduct.name}</p>
                                 </div>
                             </div>
@@ -455,7 +470,7 @@ const Products = () => {
                         <div className="flex-1 overflow-y-auto p-10 scrollbar-hide">
                             <form onSubmit={handleUpdateProduct} className="space-y-8">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Adı</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n AdÄ±</label>
                                     <input
                                         type="text" required
                                         className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-bold shadow-inner"
@@ -465,7 +480,7 @@ const Products = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-6">
                                     <div>
-                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Satış Fiyatı (₺)</label>
+                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Satış Fiyatı</label>
                                         <input
                                             type="number" step="0.01" required
                                             className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-brand-primary"
@@ -474,7 +489,7 @@ const Products = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Depozito (₺)</label>
+                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Depozito</label>
                                         <input
                                             type="number" step="0.01"
                                             className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-slate-500"
@@ -508,7 +523,7 @@ const Products = () => {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Boş Stok</label>
+                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">BoÅŸ Stok</label>
                                             <input
                                                 type="number"
                                                 className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner"
@@ -519,7 +534,7 @@ const Products = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Görseli (URL)</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n GÃ¶rseli (URL)</label>
                                     <div className="flex gap-4">
                                         <div className="flex-1 relative">
                                             <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
@@ -533,14 +548,14 @@ const Products = () => {
                                         </div>
                                         {editProductData.imageUrl && (
                                             <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-50 shadow-sm">
-                                                <img src={editProductData.imageUrl} alt="Önizleme" className="w-full h-full object-cover" />
+                                                <img src={editProductData.imageUrl} alt="Ã–nizleme" className="w-full h-full object-cover" />
                                             </div>
                                         )}
                                     </div>
                                 </div>
                                 <div className="pt-6">
                                     <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs">
-                                        Değişiklikleri Kaydet
+                                        DeÄŸiÅŸiklikleri Kaydet
                                     </button>
                                 </div>
                             </form>
@@ -570,8 +585,8 @@ const Products = () => {
 
                         <div className="flex-1 overflow-y-auto p-10 scrollbar-hide">
                             <form onSubmit={handleStockEntry} className="space-y-8">
-                                <div className="grid grid-cols-2 gap-8">
-                                    <div className="space-y-8">
+                                <div className="space-y-8">
+                                    <div className="grid grid-cols-2 gap-8">
                                         <div>
                                             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Gelen Miktar</label>
                                             <div className="relative">
@@ -586,6 +601,21 @@ const Products = () => {
                                             </div>
                                         </div>
                                         <div>
+                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Nakliye / Ek</label>
+                                            <div className="relative">
+                                                <Truck className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                                                <input
+                                                    type="number" min="0" step="0.01"
+                                                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-slate-500"
+                                                    value={entryData.transportCost}
+                                                    onChange={e => setEntryData({ ...entryData, transportCost: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-8">
+                                        <div>
                                             <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Birim Alış (₺)</label>
                                             <div className="relative">
                                                 <Banknote className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-accent" size={20} />
@@ -598,39 +628,37 @@ const Products = () => {
                                                 />
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="space-y-8">
                                         <div>
-                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Nakliye / Ek</label>
+                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Satış Fiyatı</label>
                                             <div className="relative">
-                                                <Truck className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                                                <Banknote className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary" size={20} />
                                                 <input
-                                                    type="number" min="0" step="0.01"
-                                                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-slate-500"
-                                                    value={entryData.transportCost}
-                                                    onChange={e => setEntryData({ ...entryData, transportCost: e.target.value })}
+                                                    type="number" required step="0.01"
+                                                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-brand-primary"
+                                                    value={entryData.price}
+                                                    onChange={e => setEntryData({ ...entryData, price: e.target.value })}
                                                 />
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Hedef Kar (%)</label>
-                                            <div className="relative">
-                                                <Calculator className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-secondary" size={20} />
-                                                <input
-                                                    type="number" min="0"
-                                                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner"
-                                                    value={entryData.profitMargin}
-                                                    onChange={e => setEntryData({ ...entryData, profitMargin: e.target.value })}
-                                                />
-                                            </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Depozito</label>
+                                        <div className="relative">
+                                            <Banknote className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                                            <input
+                                                type="number" step="0.01"
+                                                className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-slate-500"
+                                                value={entryData.depositFee}
+                                                onChange={e => setEntryData({ ...entryData, depositFee: e.target.value })}
+                                            />
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Analysis Card */}
-                                <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-10 text-white/5 group-hover:text-brand-primary/20 transition-colors">
-                                        <RefreshCw size={100} className="animate-spin" />
+                                <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-10 text-white/5">
+                                        <RefreshCw size={100} />
                                     </div>
                                     <h4 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
                                         <div className="w-2 h-2 bg-brand-primary rounded-full"></div>
@@ -645,49 +673,12 @@ const Products = () => {
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Birim Maliyet</p>
                                             <p className="text-2xl font-black text-white font-display">₺{stockEntryPreview.unitCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
                                         </div>
-                                        <div className="bg-white/5 rounded-3xl p-6 border border-white/10 backdrop-blur-md flex items-center justify-between col-span-2 mt-4">
-                                            <div>
-                                                <p className="text-[11px] font-black text-brand-accent uppercase tracking-widest mb-2">Önerilen Satış Fiyatı</p>
-                                                <p className="text-4xl font-black text-brand-accent font-display">₺{stockEntryPreview.suggestedPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setEntryData({ ...entryData, price: stockEntryPreview.suggestedPrice.toFixed(2) })}
-                                                className="bg-brand-accent text-slate-950 text-[10px] font-black px-5 py-3 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-brand-accent/20"
-                                            >
-                                                UYGULA
-                                            </button>
+                                        <div className="col-span-2 bg-white/5 rounded-3xl p-6 border border-white/10 backdrop-blur-md">
+                                            <p className="text-[11px] font-black text-brand-accent uppercase tracking-widest mb-2">Kâr Oranı</p>
+                                            <p className="text-4xl font-black text-brand-accent font-display">%{stockEntryPreview.profitRate.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</p>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-8">
-                                    <div>
-                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Satış Fiyatı (₺)</label>
-                                        <div className="relative">
-                                            <Banknote className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-primary" size={20} />
-                                            <input
-                                                type="number" required step="0.01"
-                                                className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-brand-primary"
-                                                value={entryData.price}
-                                                onChange={e => setEntryData({ ...entryData, price: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Depozito (₺)</label>
-                                        <div className="relative">
-                                            <Banknote className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                                            <input
-                                                type="number" step="0.01"
-                                                className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner text-slate-500"
-                                                value={entryData.depositFee}
-                                                onChange={e => setEntryData({ ...entryData, depositFee: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div className="flex gap-4 pt-6">
                                     <button
                                         type="button"
@@ -719,8 +710,8 @@ const Products = () => {
                                     <Settings2 size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display uppercase leading-tight">Kategorileri Yönet</h3>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Ürün gruplandırma ayarları</p>
+                                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display uppercase leading-tight">Kategorileri YÃ¶net</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">ÃœrÃ¼n gruplandÄ±rma ayarlarÄ±</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsCategoryDrawerOpen(false)} className="p-2 sm:p-3 bg-white rounded-2xl text-slate-400 hover:text-slate-600 shadow-sm transition-colors border border-slate-100">
@@ -730,10 +721,10 @@ const Products = () => {
                         <div className="flex-1 overflow-y-auto p-5 sm:p-10 scrollbar-hide">
                             <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-4 mb-10">
                                 <div className="flex-1">
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">YENİ KATEGORİ</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">YENÄ° KATEGORÄ°</label>
                                     <input
                                         type="text" required
-                                        placeholder="Kategori adı..."
+                                        placeholder="Kategori adÄ±..."
                                         className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-[1.2rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-bold shadow-inner"
                                         value={newCategoryLabel}
                                         onChange={e => setNewCategoryLabel(e.target.value)}
@@ -745,10 +736,10 @@ const Products = () => {
                             </form>
 
                             <div className="space-y-4 pb-20">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-1">MEVCUT KATEGORİLER</h4>
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-1">MEVCUT KATEGORÄ°LER</h4>
                                 {storeCategories.length === 0 ? (
                                     <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 font-bold text-sm">
-                                        Henüz kategori eklenmemiş.
+                                        HenÃ¼z kategori eklenmemiÅŸ.
                                     </div>
                                 ) : (
                                     storeCategories.map(cat => (
@@ -785,3 +776,5 @@ const Products = () => {
 };
 
 export default Products;
+
+

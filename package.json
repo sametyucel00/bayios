@@ -1,8 +1,11 @@
 {
   "name": "bayios",
   "private": true,
-  "version": "1.3.5",
+  "version": "1.3.6",
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "concurrently \"vite\" \"node whatsapp-backend/index.js\"",
     "build": "vite build",

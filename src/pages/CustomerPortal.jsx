@@ -5,6 +5,7 @@ import { updateLocationInFirestore } from '../services/firestoreService';
 import GoogleMapTracker from '../components/GoogleMapTracker';
 import { useEffect } from 'react';
 import { normalizeLocation, pickFirstValidLocation } from '../utils/location';
+import { calculateOrderTotals, hydrateOrderItemWithProduct } from '../utils/orderPricing';
 
 const CustomerPortal = ({ user, initialTab = 'market' }) => {
     const storeProducts = useStore(state => state.products) || [];
@@ -58,7 +59,7 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
     const isInitialLoading = orders.length === 0 && user?.id;
 
     // Cart and Order State
-    const [cart, setCart] = useState({}); // { productId: quantity }
+    const [cart, setCart] = useState({}); // { productId: { quantity, includeDeposit } }
     const [paymentMethod, setPaymentMethod] = useState('Nakit');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
@@ -66,26 +67,43 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
     const [etaSeconds, setEtaSeconds] = useState(null);
 
     const cartItems = Object.entries(cart)
-        .map(([id, quantity]) => {
+        .map(([id, entry]) => {
             const product = products.find(p => p.id.toString() === id.toString());
-            return product ? { ...product, quantity } : null;
+            return product ? { ...product, quantity: Number(entry?.quantity || 0), includeDeposit: Boolean(entry?.includeDeposit) } : null;
         })
         .filter(item => item !== null && item.quantity > 0);
 
-    const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    const orderTotals = calculateOrderTotals(cartItems.map((item) => ({
+        price: item.price,
+        depositFee: item.depositFee,
+        quantity: item.quantity,
+        includeDeposit: item.includeDeposit,
+    })));
+    const totalAmount = orderTotals.amount;
+    const totalQuantity = orderTotals.quantity;
 
     const updateCart = (productId, delta) => {
         setCart(prev => {
-            const currentQty = prev[productId] || 0;
+            const currentEntry = prev[productId] || { quantity: 0, includeDeposit: false };
+            const currentQty = Number(currentEntry.quantity || 0);
             const newQty = Math.max(0, currentQty + delta);
             if (newQty === 0) {
                 const newCart = { ...prev };
                 delete newCart[productId];
                 return newCart;
             }
-            return { ...prev, [productId]: newQty };
+            return { ...prev, [productId]: { ...currentEntry, quantity: newQty } };
         });
+    };
+
+    const updateCartDeposit = (productId, includeDeposit) => {
+        setCart((prev) => ({
+            ...prev,
+            [productId]: {
+                quantity: Number(prev[productId]?.quantity || 1),
+                includeDeposit,
+            },
+        }));
     };
 
     const handleCreateOrder = async () => {
@@ -94,14 +112,30 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
         setIsSubmitting(true);
         try {
             const productDescription = cartItems.map(item => `${item.name} x${item.quantity}`).join(', ');
+            const orderItems = cartItems.map((item) => {
+                const hydrated = hydrateOrderItemWithProduct(item, {
+                    quantity: item.quantity,
+                    includeDeposit: Boolean(item.includeDeposit),
+                });
+                return {
+                    productId: hydrated.productId,
+                    name: hydrated.name,
+                    price: hydrated.price,
+                    quantity: hydrated.quantity,
+                    depositFee: hydrated.depositFee,
+                    includeDeposit: hydrated.includeDeposit,
+                };
+            });
 
             const orderData = {
                 customerId: user.id || null,
                 customer: user.name,
-                product: productDescription,
-                items: cartItems.map(item => ({ productId: item.id, quantity: item.quantity })),
+                product: orderItems.map((item) => `${item.name} x${item.quantity}${item.includeDeposit ? ' (Depozitolu)' : ''}`).join(', '),
+                items: orderItems,
                 quantity: totalQuantity,
                 amount: totalAmount,
+                productTotal: orderTotals.productTotal,
+                depositTotal: orderTotals.depositTotal,
                 paymentMethod: paymentMethod,
                 date: new Date().toLocaleString('tr-TR'),
                 hasInvoice: false,
@@ -316,7 +350,7 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                                 {filteredProducts.map(product => {
-                                    const qty = cart[product.id] || 0;
+                                    const qty = Number(cart[product.id]?.quantity || 0);
                                     return (
                                         <div
                                             key={product.id}
@@ -401,13 +435,30 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
                                                         <div>
                                                             <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-colors">{item.name}</div>
                                                             <div className="text-[10px] text-slate-400 font-bold">{item.quantity} Adet × ₺{item.price}</div>
+                                                            {Number(item.depositFee || 0) > 0 && (
+                                                                <label className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-orange-600">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="h-4 w-4 accent-orange-500"
+                                                                        checked={Boolean(item.includeDeposit)}
+                                                                        onChange={(e) => updateCartDeposit(item.id, e.target.checked)}
+                                                                    />
+                                                                    Depozito Var
+                                                                </label>
+                                                            )}
                                                         </div>
-                                                        <div className="font-bold text-slate-700">₺{item.price * item.quantity}</div>
+                                                        <div className="font-bold text-slate-700">₺{(Number(item.price || 0) + (item.includeDeposit ? Number(item.depositFee || 0) : 0)) * item.quantity}</div>
                                                     </div>
                                                 ))}
                                             </div>
 
                                             <div className="pt-4 border-t border-dashed border-slate-200">
+                                                {orderTotals.depositTotal > 0 && (
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="text-orange-500 font-bold uppercase tracking-tighter text-xs">Depozito</span>
+                                                        <span className="text-orange-600 font-black">₺{orderTotals.depositTotal}</span>
+                                                    </div>
+                                                )}
                                                 <div className="flex justify-between items-center mb-6">
                                                     <span className="text-slate-500 font-bold uppercase tracking-tighter">Genel Toplam</span>
                                                     <span className="text-2xl font-black text-slate-900 tracking-tighter">₺{totalAmount}</span>

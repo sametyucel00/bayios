@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingBag, Plus, Minus, UserCircle, Truck } from 'lucide-react';
 import useStore from '../store/useStore';
+import { calculateOrderTotals, hydrateOrderItemWithProduct } from '../utils/orderPricing';
 
 const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }) => {
     const { products, addOrder, subscribers, couriers } = useStore();
@@ -24,7 +25,7 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
                 item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
             ));
         } else {
-            setCart([...cart, { ...product, quantity: 1 }]);
+            setCart([...cart, { ...product, quantity: 1, includeDeposit: false }]);
         }
     };
 
@@ -41,8 +42,20 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
         }
     };
 
-    const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const totalDeposit = cart.reduce((sum, item) => sum + ((item.depositFee || 0) * item.quantity), 0);
+    const totals = calculateOrderTotals(cart.map((item) => ({
+        price: item.price,
+        depositFee: item.depositFee,
+        quantity: item.quantity,
+        includeDeposit: item.includeDeposit,
+    })));
+    const totalAmount = totals.productTotal;
+    const totalDeposit = totals.depositTotal;
+
+    const toggleDeposit = (productId, checked) => {
+        setCart((current) => current.map((item) => (
+            item.id === productId ? { ...item, includeDeposit: checked } : item
+        )));
+    };
 
     const handleComplete = async () => {
         for (const item of cart) {
@@ -52,16 +65,33 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
                 if (c) courierName = c.name;
             }
 
+            const hydrated = hydrateOrderItemWithProduct(item, {
+                quantity: item.quantity,
+                includeDeposit: Boolean(item.includeDeposit),
+            });
+            const lineTotals = calculateOrderTotals([hydrated]);
+
             await addOrder({
                 customer: customer.name,
                 customerId: customer.id || null,
                 phone: customer.phone || '',
                 address: customer.address || '',
-                product: item.name,
+                product: `${item.name}${hydrated.includeDeposit ? ' (Depozitolu)' : ''}`,
                 productId: item.id,
-                quantity: item.quantity,
-                amount: item.price * item.quantity,
-                depositFee: item.depositFee || 0,
+                items: [{
+                    productId: hydrated.productId,
+                    name: hydrated.name,
+                    price: hydrated.price,
+                    quantity: hydrated.quantity,
+                    depositFee: hydrated.depositFee,
+                    includeDeposit: hydrated.includeDeposit,
+                }],
+                quantity: hydrated.quantity,
+                amount: lineTotals.amount,
+                productTotal: lineTotals.productTotal,
+                depositTotal: lineTotals.depositTotal,
+                depositFee: hydrated.depositFee || 0,
+                includeDeposit: hydrated.includeDeposit,
                 courier: courierName,
                 paymentMethod: paymentMethod,
                 hasInvoice: false,
@@ -70,7 +100,7 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
             });
         }
 
-        onComplete(cart, totalAmount + totalDeposit);
+        onComplete(cart, totals.amount);
         setCart([]);
         onClose();
     };
@@ -184,7 +214,7 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
                                         <div key={item.id} className="premium-card p-3 bg-white border border-slate-100 shadow-none">
                                             <div className="text-[13px] font-black text-slate-900 mb-2 truncate">{item.name}</div>
                                             <div className="flex justify-between items-center">
-                                                <div className="text-brand-primary font-black font-display text-sm">₺{item.price * item.quantity}</div>
+                                                <div className="text-brand-primary font-black font-display text-sm">₺{(Number(item.price || 0) + (item.includeDeposit ? Number(item.depositFee || 0) : 0)) * item.quantity}</div>
                                                 <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100 shadow-inner">
                                                     <button onClick={() => removeFromCart(item.id)} className="p-1 bg-white text-slate-400 hover:text-rose-500 rounded-lg shadow-sm transition-colors">
                                                         <Minus size={12} />
@@ -195,6 +225,17 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
                                                     </button>
                                                 </div>
                                             </div>
+                                            {Number(item.depositFee || 0) > 0 && (
+                                                <label className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-orange-100 bg-orange-50/60 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-orange-600">
+                                                    <span>Depozito Var</span>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="h-4 w-4 accent-orange-500"
+                                                        checked={Boolean(item.includeDeposit)}
+                                                        onChange={(e) => toggleDeposit(item.id, e.target.checked)}
+                                                    />
+                                                </label>
+                                            )}
                                         </div>
                                     ))
                                 )}
@@ -234,7 +275,7 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
                                 )}
                                 <div className="flex justify-between items-center pt-2 mt-2 border-t border-slate-100">
                                     <span className="text-slate-900 font-black text-[11px] uppercase tracking-widest">Genel Toplam</span>
-                                    <span className="text-2xl font-black text-slate-900 font-display tracking-tighter">₺{totalAmount + totalDeposit}</span>
+                                    <span className="text-2xl font-black text-slate-900 font-display tracking-tighter">₺{totals.amount}</span>
                                 </div>
                             </div>
 

@@ -1,140 +1,102 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Phone, PhoneOff, User, MapPin, Clock, Plus, ShoppingCart, UserPlus, X, CheckCircle2, Building2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Phone, PhoneOff, User, MapPin, Plus, ShoppingCart, UserPlus, X, CheckCircle2, Building2 } from 'lucide-react';
 import useStore from '../store/useStore';
+import { calculateOrderTotals, createOrderItemDraft, hydrateOrderItemWithProduct } from '../utils/orderPricing';
 
 const isDebugLoggingEnabled = import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true';
+
+const createEmptyOrderItem = () => createOrderItemDraft();
+
+const getNextSubscriberNumber = (subscribers = []) => {
+    const numbers = subscribers
+        .map((item) => Number.parseInt(String(item?.id ?? '').replace(/\D/g, ''), 10))
+        .filter((value) => Number.isFinite(value));
+
+    return String((numbers.length > 0 ? Math.max(...numbers) : 0) + 1);
+};
 
 const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, isManual }) => {
     const { subscribers, orders, products, addSubscriber, addOrder, addNotification } = useStore();
     const [subscriber, setSubscriber] = useState(null);
     const [lastOrder, setLastOrder] = useState(null);
     const [phone, setPhone] = useState(incomingPhone);
-    const [callState, setCallState] = useState('ringing'); // ringing, new-subscriber, quick-order
+    const [callState, setCallState] = useState('ringing');
     const [directOrderAvailable, setDirectOrderAvailable] = useState(false);
-    const audioRef = useRef(null);
 
-    // Form inputs for new subscriber
     const [newSubName, setNewSubName] = useState('');
     const [newSubAddress, setNewSubAddress] = useState('');
     const [newSubIsCorporate, setNewSubIsCorporate] = useState(false);
 
-    // Quick Order inputs
-    const [selectedProduct, setSelectedProduct] = useState('');
-    const [quantity, setQuantity] = useState(1);
-
-    const soundAlertsEnabled = useStore(state => state.currentUser?.settings?.soundAlerts ?? true);
-
-    const stopAudio = () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-            if (isDebugLoggingEnabled) {
-                console.log("Audio stopped explicitly.");
-            }
-        }
-    };
+    const [orderItems, setOrderItems] = useState([createEmptyOrderItem()]);
 
     useEffect(() => {
-        if (isOpen && soundAlertsEnabled && callState === 'ringing' && !isManual) {
-            try {
-                if (typeof Audio !== 'undefined') {
-                    if (!audioRef.current) {
-                        audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3');
-                        audioRef.current.loop = true;
-                    }
-                    if (isDebugLoggingEnabled) {
-                        console.log("Starting audio playback...");
-                    }
-                    audioRef.current.play().catch(e => {
-                        if (isDebugLoggingEnabled) {
-                            console.log('Audio play blocked:', e);
-                        }
-                    });
+        if (!isOpen) return;
+
+        if (isDebugLoggingEnabled) {
+            console.log('IncomingCallDrawer Opened. Phone:', incomingPhone, 'Manual:', isManual);
+        }
+
+        setPhone(incomingPhone || '');
+        const incomingStr = String(incomingPhone || '').replace(/\s/g, '');
+        const found = subscribers.find((s) => s.phone && String(s.phone).replace(/\s/g, '') === incomingStr);
+
+        setSubscriber(found || null);
+        setNewSubName('');
+        setNewSubAddress('');
+        setNewSubIsCorporate(false);
+        setLastOrder(null);
+        setDirectOrderAvailable(false);
+        setOrderItems([createEmptyOrderItem()]);
+
+        if (found) {
+            const subOrders = orders
+                .filter((o) => o.customerId === found.id)
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            if (subOrders.length > 0) {
+                setLastOrder(subOrders[0]);
+
+                if (Array.isArray(subOrders[0].items) && subOrders[0].items.length > 0) {
+                    setOrderItems(
+                        subOrders[0].items.map((item) => ({
+                            productId: item.productId || products.find((product) => item.name && product.name === item.name)?.id || '',
+                            quantity: Number(item.quantity || 1),
+                            includeDeposit: Boolean(item.includeDeposit),
+                        }))
+                    );
+                    setDirectOrderAvailable(true);
                 }
-            } catch (error) {
-                console.error('Audio initialization failed:', error);
+            } else if (found.product) {
+                const matchingProd = products.find((p) => {
+                    const productName = String(p.name || '').toLocaleLowerCase('tr-TR');
+                    const preferredProduct = String(found.product || '').toLocaleLowerCase('tr-TR');
+                    return productName.includes(preferredProduct) || preferredProduct.includes(productName);
+                });
+
+                if (matchingProd) {
+                    setOrderItems([createOrderItemDraft({ productId: matchingProd.id, quantity: Number(found.quantity || 1) })]);
+                    setDirectOrderAvailable(true);
+                }
             }
+        }
+
+        if (isManual) {
+            setCallState(found ? 'quick-order' : 'new-subscriber');
         } else {
-            stopAudio();
+            setCallState('ringing');
         }
-
-        return () => {
-            stopAudio();
-        };
-    }, [isOpen, soundAlertsEnabled, callState, isManual]);
-
-    useEffect(() => {
-        if (isOpen) {
-            if (isDebugLoggingEnabled) {
-                console.log("IncomingCallDrawer Opened. Phone:", incomingPhone, "Manual:", isManual);
-            }
-            
-            setPhone(incomingPhone || '');
-            const incomingStr = String(incomingPhone || '').replace(/\s/g, '');
-            const found = subscribers.find(s => s.phone && String(s.phone).replace(/\s/g, '') === incomingStr);
-            setSubscriber(found || null);
-
-            if (found) {
-                const subOrders = orders.filter(o => o.customerId === found.id).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                if (subOrders.length > 0) setLastOrder(subOrders[0]);
-
-                if (found.product) {
-                    const matchingProd = products.find(p => {
-                        const productName = (p.name || '').toLowerCase();
-                        const preferredProduct = (found.product || '').toLowerCase();
-                        return productName.includes(preferredProduct) || preferredProduct.includes(productName);
-                    });
-                    if (matchingProd) {
-                        setSelectedProduct(matchingProd.id);
-                        setQuantity(found.quantity || 1);
-                        setDirectOrderAvailable(true);
-                    } else {
-                        setDirectOrderAvailable(false);
-                    }
-                } else {
-                    setDirectOrderAvailable(false);
-                }
-            } else {
-                setDirectOrderAvailable(false);
-            }
-
-            if (isManual) {
-                if (found) {
-                    setCallState('quick-order');
-                } else {
-                    setCallState('new-subscriber');
-                }
-            } else {
-                setCallState('ringing');
-            }
-            
-            setNewSubName('');
-            setNewSubAddress('');
-            setNewSubIsCorporate(false);
-            setSelectedProduct('');
-            setQuantity(1);
-        }
-    }, [isOpen, incomingPhone, subscribers, orders, products, isManual]);
+    }, [incomingPhone, isManual, isOpen, orders, products, subscribers]);
 
     if (!isOpen) return null;
 
     const handleAnswer = () => {
-        stopAudio();
         if (deviceId) {
             useStore.getState().sendDeviceCommand(deviceId, 'ANSWER_CALL');
         }
-        if (subscriber) {
-            setCallState('quick-order');
-        } else {
-            setCallState('new-subscriber');
-        }
+        setCallState(subscriber ? 'quick-order' : 'new-subscriber');
     };
 
     const handleReject = () => {
-        stopAudio();
-        if (deviceId) {
-            useStore.getState().sendDeviceCommand(deviceId, 'REJECT_CALL');
-        }
         onClose();
         setTimeout(() => setCallState('ringing'), 300);
     };
@@ -143,9 +105,12 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
         e.preventDefault();
         if (!newSubName.trim()) return;
 
+        const nextSubscriberNumber = getNextSubscriberNumber(subscribers);
+
         const newSub = {
+            id: nextSubscriberNumber,
             name: newSubName,
-            phone: phone,
+            phone,
             address: newSubAddress,
             location: '',
             bottles: 0,
@@ -154,60 +119,89 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
             isCorporate: newSubIsCorporate
         };
 
-        // Use the returned ID or wait for store update
         try {
             const docRef = await addSubscriber(newSub);
-            // Manually set subscriber in local state to avoid race condition with listeners
-            setSubscriber({ ...newSub, id: docRef?.id || 'temp' });
+            setSubscriber({ ...newSub, firestoreId: docRef?.id || null });
             setCallState('quick-order');
         } catch (error) {
-            console.error("Failed to add subscriber:", error);
-            addNotification("Abone kaydedilemedi.", "error");
+            console.error('Failed to add subscriber:', error);
+            addNotification('Abone kaydedilemedi.', 'error');
         }
     };
 
     const handleCreateOrder = async (e) => {
         if (e) e.preventDefault();
-        if (!selectedProduct) return;
+        if (!subscriber) return;
 
-        const product = products.find(p => String(p.id) === String(selectedProduct));
-        if (!product) return;
+        const validItems = orderItems
+            .map((item) => {
+                const product = products.find((p) => String(p.id) === String(item.productId));
+                if (!product) return null;
+                const hydrated = hydrateOrderItemWithProduct(product, {
+                    quantity: Number(item.quantity || 1),
+                    includeDeposit: Boolean(item.includeDeposit),
+                });
 
-        const orderData = {
+                return {
+                    productId: hydrated.productId,
+                    name: hydrated.name,
+                    price: hydrated.price,
+                    depositFee: hydrated.depositFee,
+                    includeDeposit: hydrated.includeDeposit,
+                    quantity: hydrated.quantity
+                };
+            })
+            .filter(Boolean);
+
+        if (validItems.length === 0) return;
+
+        const totals = calculateOrderTotals(validItems);
+
+        await addOrder({
             customer: subscriber.name,
             customerId: subscriber.id,
-            product: `${quantity}x ${product.name}`,
-            items: [{ productId: product.id, quantity }],
-            quantity: quantity,
-            amount: product.price * quantity,
+            product: validItems.map((item) => `${item.quantity}x ${item.name}${item.includeDeposit ? ' (Depozitolu)' : ''}`).join(', '),
+            items: validItems.map(({ productId, name, price, quantity, depositFee, includeDeposit }) => ({ productId, name, price, quantity, depositFee, includeDeposit })),
+            quantity: totals.quantity,
+            amount: totals.amount,
+            productTotal: totals.productTotal,
+            depositTotal: totals.depositTotal,
             courier: '-',
             paymentMethod: 'Nakit',
             address: subscriber.address || '',
             phone: subscriber.phone || '',
             hasInvoice: false,
             timestamp: new Date().toISOString()
-        };
+        });
 
-        await addOrder(orderData);
         addNotification('Sipariş başarıyla oluşturuldu!', 'success');
         handleReject();
     };
 
+    const updateOrderItem = (index, field, value) => {
+        setOrderItems((current) => current.map((item, itemIndex) => (
+            itemIndex === index ? { ...item, [field]: value } : item
+        )));
+    };
+
+    const addProductLine = () => {
+        setOrderItems((current) => [...current, createEmptyOrderItem()]);
+    };
+
+    const removeProductLine = (index) => {
+        setOrderItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    };
 
     return (
         <div className="fixed inset-0 z-[200] flex justify-end">
-            {/* Blurry Background */}
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={handleReject}></div>
 
-            <div 
+            <div
                 onClick={(e) => e.stopPropagation()}
                 className={`relative w-full max-w-md h-[100dvh] shadow-2xl transition-all duration-300 animate-in slide-in-from-right ${callState === 'ringing' ? 'bg-gradient-to-b from-slate-800 to-slate-900' : 'bg-white'}`}
             >
-
-                {/* Ringing State */}
                 {callState === 'ringing' && (
                     <div className="absolute inset-0 flex flex-col items-center py-16 px-6">
-                        {/* Real active call listening via Firebase */}
                         <h2 className="text-white text-3xl font-light tracking-wider mt-4 text-center">
                             {subscriber ? subscriber.name : 'Bilinmeyen Numara'}
                         </h2>
@@ -251,17 +245,17 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
 
                         <div className="mt-auto w-full flex flex-col gap-6 px-10 pb-12">
                             {directOrderAvailable && (
-                                <button 
+                                <button
                                     onClick={(e) => { e.stopPropagation(); handleCreateOrder(); }}
-                                    className="w-full bg-brand-primary text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-brand-primary/20 animate-bounce active:scale-95 transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-[0.2em] border-2 border-white/20"
+                                    className="w-full bg-brand-primary text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-brand-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-[0.2em] border-2 border-white/20"
                                 >
-                                    <ShoppingCart size={20} /> TEK TIKLA SİPARİŞİ ONAYLA
+                                    <ShoppingCart size={20} /> HAZIR SİPARİŞİ ONAYLA
                                 </button>
                             )}
 
                             <div className="flex justify-between w-full">
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); handleReject(); }} 
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleReject(); }}
                                     className="group flex flex-col items-center gap-4 active:scale-95 transition-all outline-none"
                                 >
                                     <div className="w-20 h-20 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-rose-500/30 ring-4 ring-rose-500/10">
@@ -269,8 +263,8 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                                     </div>
                                     <span className="text-white font-black text-[12px] uppercase tracking-[0.2em] group-hover:text-rose-400 transition-colors">Reddet</span>
                                 </button>
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); handleAnswer(); }} 
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleAnswer(); }}
                                     className="group flex flex-col items-center gap-4 active:scale-95 transition-all outline-none"
                                 >
                                     <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-emerald-500/30 ring-4 ring-emerald-500/10">
@@ -283,13 +277,15 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                     </div>
                 )}
 
-                {/* Answered: New Subscriber Form */}
                 {callState === 'new-subscriber' && (
                     <div className="p-8 animate-in fade-in slide-in-from-right duration-300">
                         <div className="flex justify-between items-center mb-8">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">Yeni Abone</h3>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1 font-mono">{phone}</p>
+                                <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest mt-2">
+                                    Yeni Müşteri No: {getNextSubscriberNumber(subscribers)}
+                                </p>
                             </div>
                             <button onClick={handleReject} className="p-2 bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm">
                                 <PhoneOff size={20} />
@@ -303,28 +299,33 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                                     <div className="relative">
                                         <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                                         <input
-                                            type="tel" required
+                                            type="tel"
+                                            required
                                             className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[1.2rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-bold text-slate-800"
                                             placeholder="5XX XXX XX XX"
                                             value={phone}
-                                            onChange={e => setPhone(e.target.value)}
+                                            onChange={(e) => setPhone(e.target.value)}
                                         />
                                     </div>
                                 </div>
                             )}
+
                             <div className="group">
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Abone Adı Soyadı</label>
                                 <div className="relative">
                                     <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                                     <input
-                                        type="text" required autoFocus
+                                        type="text"
+                                        required
+                                        autoFocus
                                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[1.2rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-bold text-slate-800"
                                         placeholder="Örn: Ayşe Yılmaz"
                                         value={newSubName}
-                                        onChange={e => setNewSubName(e.target.value)}
+                                        onChange={(e) => setNewSubName(e.target.value)}
                                     />
                                 </div>
                             </div>
+
                             <div className="group">
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Teslimat Adresi</label>
                                 <div className="relative">
@@ -334,7 +335,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-[1.2rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-bold text-slate-800 resize-none h-28"
                                         placeholder="Mahalle, sokak, bina ve daire no..."
                                         value={newSubAddress}
-                                        onChange={e => setNewSubAddress(e.target.value)}
+                                        onChange={(e) => setNewSubAddress(e.target.value)}
                                     />
                                 </div>
                             </div>
@@ -346,7 +347,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                                             type="checkbox"
                                             className="absolute opacity-0 w-full h-full cursor-pointer z-10"
                                             checked={newSubIsCorporate}
-                                            onChange={e => setNewSubIsCorporate(e.target.checked)}
+                                            onChange={(e) => setNewSubIsCorporate(e.target.checked)}
                                         />
                                         {newSubIsCorporate && <CheckCircle2 size={16} className="text-brand-primary absolute" />}
                                     </div>
@@ -360,13 +361,12 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                             </div>
 
                             <button type="submit" className="w-full bg-slate-900 text-white font-black py-4 rounded-[1.2rem] shadow-xl hover:bg-brand-primary transition-all active:scale-95 flex items-center justify-center gap-2 uppercase text-xs tracking-widest mt-8">
-                                <UserPlus size={18} /> KAYDI TAMAMLA & SİPARİŞE GEÇ
+                                <UserPlus size={18} /> KAYDI TAMAMLA VE SİPARİŞE GEÇ
                             </button>
                         </form>
                     </div>
                 )}
 
-                {/* Answered: Quick Order Form */}
                 {callState === 'quick-order' && (
                     <div className="p-8 animate-in fade-in slide-in-from-right duration-300">
                         <div className="flex justify-between items-start mb-6 border-b border-slate-100 pb-6">
@@ -396,44 +396,103 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                         {lastOrder && (
                             <div className="mb-6 bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-between">
                                 <div>
-                                    <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">SON SİPARİŞİ</p>
+                                    <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">Son Siparişi</p>
                                     <p className="font-bold text-indigo-900 text-sm">{lastOrder.product}</p>
                                 </div>
-                                <button onClick={() => {
-                                    // Extract quantity and product id simplisticly for demo
-                                    setQuantity(lastOrder.quantity);
-                                    // Find product matching name
-                                    const prod = products.find(p => lastOrder.product.includes(p.name));
-                                    if (prod) setSelectedProduct(prod.id);
-                                }} className="p-2 bg-white rounded-xl text-indigo-500 shadow-sm hover:scale-105 active:scale-95 transition-transform text-[10px] font-black uppercase tracking-widest">
-                                    AYNISINI GİR
+                                <button
+                                    onClick={() => {
+                                        if (Array.isArray(lastOrder.items) && lastOrder.items.length > 0) {
+                                            setOrderItems(
+                                                lastOrder.items.map((item) => ({
+                                                    productId: item.productId || products.find((product) => item.name && product.name === item.name)?.id || '',
+                                                    quantity: Number(item.quantity || 1),
+                                                    includeDeposit: Boolean(item.includeDeposit),
+                                                }))
+                                            );
+                                            return;
+                                        }
+
+                                        const prod = products.find((p) => String(lastOrder.product || '').includes(p.name));
+                                        if (prod) {
+                                            setOrderItems([createOrderItemDraft({ productId: prod.id, quantity: Number(lastOrder.quantity || 1) })]);
+                                        }
+                                    }}
+                                    className="p-2 bg-white rounded-xl text-indigo-500 shadow-sm hover:scale-105 active:scale-95 transition-transform text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Aynısını Gir
                                 </button>
                             </div>
                         )}
 
                         <form onSubmit={handleCreateOrder} className="space-y-6">
-                            <div className="group">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ne İstediler?</label>
-                                <select
-                                    required
-                                    className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-[1.2rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-bold text-slate-800"
-                                    value={selectedProduct}
-                                    onChange={e => setSelectedProduct(e.target.value)}
-                                >
-                                    <option value="">Ürün Seçiniz...</option>
-                                    {products.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name} - ₺{p.price}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Miktar</label>
-                                <div className="flex items-center gap-4">
-                                    <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-500 hover:bg-slate-200 active:scale-95">-</button>
-                                    <div className="flex-1 text-center font-black text-3xl font-display text-slate-900">{quantity}</div>
-                                    <button type="button" onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-500 hover:bg-slate-200 active:scale-95">+</button>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Ne İstediler?</label>
+                                    <button
+                                        type="button"
+                                        onClick={addProductLine}
+                                        className="px-3 py-2 rounded-xl bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
+                                    >
+                                        <Plus size={14} /> Ürün Ekle
+                                    </button>
                                 </div>
+
+                                {orderItems.map((item, index) => {
+                                    const selectedProduct = products.find((product) => String(product.id) === String(item.productId));
+                                    const hasDeposit = Number(selectedProduct?.depositFee || 0) > 0;
+                                    return (
+                                    <div key={`${index}-${item.productId || 'empty'}`} className="bg-slate-50 border border-slate-100 rounded-[1.4rem] p-4 space-y-4">
+                                        <select
+                                            required
+                                            className="w-full p-4 bg-white border-2 border-transparent rounded-[1.2rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-bold text-slate-800"
+                                            value={item.productId}
+                                            onChange={(e) => updateOrderItem(index, 'productId', e.target.value)}
+                                        >
+                                            <option value="">Ürün Seçiniz...</option>
+                                            {products.map((product) => (
+                                                <option key={product.id} value={product.id}>{product.name} - ₺{product.price}</option>
+                                            ))}
+                                        </select>
+
+                                        <div className="flex items-center gap-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => updateOrderItem(index, 'quantity', Math.max(1, Number(item.quantity || 1) - 1))}
+                                                className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center font-black text-slate-500 hover:bg-slate-200 active:scale-95"
+                                            >
+                                                -
+                                            </button>
+                                            <div className="flex-1 text-center font-black text-3xl font-display text-slate-900">{Number(item.quantity || 1)}</div>
+                                            <button
+                                                type="button"
+                                                onClick={() => updateOrderItem(index, 'quantity', Number(item.quantity || 1) + 1)}
+                                                className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center font-black text-slate-500 hover:bg-slate-200 active:scale-95"
+                                            >
+                                                +
+                                            </button>
+                                            {orderItems.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeProductLine(index)}
+                                                    className="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all active:scale-95"
+                                                >
+                                                    <X size={18} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        {hasDeposit && (
+                                            <label className="flex items-center justify-between gap-4 rounded-[1.2rem] border border-orange-100 bg-orange-50/70 px-4 py-3 text-[11px] font-black uppercase tracking-wider text-orange-600">
+                                                <span>Depozito Var</span>
+                                                <input
+                                                    type="checkbox"
+                                                    className="h-5 w-5 accent-orange-500"
+                                                    checked={Boolean(item.includeDeposit)}
+                                                    onChange={(e) => updateOrderItem(index, 'includeDeposit', e.target.checked)}
+                                                />
+                                            </label>
+                                        )}
+                                    </div>
+                                );})}
                             </div>
 
                             <button type="submit" className="w-full bg-emerald-500 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest mt-8">

@@ -105,6 +105,7 @@ const Accounting = () => {
     });
 
     const totalIncome = distribution.reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
+    const totalDepositIncome = filteredOrders.reduce((acc, order) => acc + (Number(order.depositTotal) || 0), 0);
 
     const totalExpenses = expenses.reduce((acc, exp) => {
         const amount = Number(exp.amount) || 0;
@@ -197,7 +198,7 @@ const Accounting = () => {
             </div>
 
             {/* Metrics Dashboard */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
                 <StatCard
                     title="Brüt Tahsilat"
                     value={`₺${totalIncome.toLocaleString('tr-TR')}`}
@@ -229,6 +230,14 @@ const Accounting = () => {
                     icon={History}
                     color="bg-brand-accent"
                     trend={5.2}
+                />
+                <StatCard
+                    title="Depozito Geliri"
+                    value={`₺${totalDepositIncome.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}`}
+                    subtext="Tamamlanan Siparişlerden"
+                    icon={PieChartIcon}
+                    color="bg-orange-500"
+                    trend={4.6}
                 />
             </div>
 

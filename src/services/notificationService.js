@@ -7,6 +7,17 @@ import { doc, setDoc } from "firebase/firestore";
 const isNativePlatform = () => Capacitor.isNativePlatform();
 let nativePushListenersBound = false;
 
+const buildFirebaseMessagingSwUrl = () => {
+    const swUrl = new URL("/firebase-messaging-sw.js", window.location.origin);
+    swUrl.searchParams.set("apiKey", import.meta.env.VITE_FIREBASE_API_KEY || "");
+    swUrl.searchParams.set("authDomain", import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "");
+    swUrl.searchParams.set("projectId", import.meta.env.VITE_FIREBASE_PROJECT_ID || "");
+    swUrl.searchParams.set("storageBucket", import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "");
+    swUrl.searchParams.set("messagingSenderId", import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "");
+    swUrl.searchParams.set("appId", import.meta.env.VITE_FIREBASE_APP_ID || "");
+    return swUrl.toString();
+};
+
 const saveNotificationToken = async (userId, token, source) => {
     if (!token || !userId) {
         return null;
@@ -65,8 +76,13 @@ const requestWebNotificationPermission = async (userId) => {
         return null;
     }
 
+    const serviceWorkerRegistration = await navigator.serviceWorker.register(
+        buildFirebaseMessagingSwUrl()
+    );
+
     const token = await getToken(messaging, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration
     });
 
     if (!token) {

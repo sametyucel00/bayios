@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import useStore from './store/useStore';
 import Layout from './layouts/Layout';
 import Dashboard from './pages/Dashboard';
@@ -25,7 +25,7 @@ import NotificationToast from './components/NotificationToast';
 import Dealers from './pages/Dealers';
 
 import { rtdb } from './lib/firebase';
-import { ref, onValue, set } from "firebase/database";
+import { ref, onValue, update } from "firebase/database";
 import { updateLocationInFirestore } from './services/firestoreService';
 import { installTurkishTextFixer } from './utils/turkishTextFixer';
 
@@ -174,7 +174,7 @@ function App() {
       }
     }, (error) => {
       console.error("RTDB Listener Error (Permissions?):", error);
-      useStore.getState().addNotification("Arama dinleme hatası! Firebase izinlerini kontrol edin.", "warning");
+      useStore.getState().addNotification("Arama dinleme hatasÄ±! Firebase izinlerini kontrol edin.", "warning");
     });
 
     return () => unsubscribe();
@@ -257,6 +257,34 @@ function App() {
     setCurrentView('dashboard');
   };
 
+  const closeActiveCallEverywhere = async () => {
+    const businessId = storeUser?.role?.toLowerCase() === 'admin' ? storeUser.id : storeUser?.businessId;
+
+    if (activeCall?.deviceId) {
+      useStore.getState().sendDeviceCommand(activeCall.deviceId, 'REJECT_CALL');
+    }
+
+    if (businessId) {
+      const updates = {
+        phone: "",
+        manual: false
+      };
+
+      if (activeCall?.deviceId) {
+        updates[`${activeCall.deviceId}/phone`] = "";
+        updates[`${activeCall.deviceId}/manual`] = false;
+      }
+
+      try {
+        await update(ref(rtdb, `active_calls/${businessId}`), updates);
+      } catch (error) {
+        console.error("Active call close sync failed:", error);
+      }
+    }
+
+    clearActiveCall();
+  };
+
   if (!storeUser || !storeUser.id || !storeUser.role) {
     return <Login onLogin={handleLogin} />;
   }
@@ -319,8 +347,8 @@ function App() {
         return (
           <div className="p-8 flex items-center justify-center h-full">
             <div className="text-center text-slate-400">
-              <h2 className="text-2xl font-bold mb-2">Yapım Aşamasında</h2>
-              <p>"{currentView}" modülü yakında eklenecek.</p>
+              <h2 className="text-2xl font-bold mb-2">YapÄ±m AÅŸamasÄ±nda</h2>
+              <p>"{currentView}" modÃ¼lÃ¼ yakÄ±nda eklenecek.</p>
             </div>
           </div>
         );
@@ -346,18 +374,7 @@ function App() {
         phone={activeCall?.number}
         deviceId={activeCall?.deviceId}
         isManual={activeCall?.manual}
-        onClose={() => {
-          const businessId = storeUser?.role?.toLowerCase() === 'admin' ? storeUser.id : storeUser?.businessId;
-          if (businessId) {
-            // Sadece aktif aramayı temizle, tüm şubeyi değil!
-            if (activeCall?.deviceId) {
-               set(ref(rtdb, `active_calls/${businessId}/${activeCall.deviceId}`), { phone: "" });
-            } else {
-               set(ref(rtdb, `active_calls/${businessId}`), { phone: "" });
-            }
-          }
-          clearActiveCall();
-        }}
+        onClose={closeActiveCallEverywhere}
       />
       <NotificationToast />
     </SubscriptionGuard>

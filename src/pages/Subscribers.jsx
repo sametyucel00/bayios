@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+﻿import React, { useState, useMemo, useCallback } from 'react';
 import { Users, Search, Filter, Phone, MapPin, MoreHorizontal, CheckCircle, XCircle, RefreshCw, FileSpreadsheet, Upload, Package, Calendar, UserPlus, Edit2, ChevronRight, TrendingUp, UserCheck, UserMinus, Trash2, Building2, User } from 'lucide-react';
 import useStore from '../store/useStore';
 import SubscriberDrawer from '../components/SubscriberDrawer';
@@ -32,8 +32,19 @@ const Subscribers = () => {
         'Suspended': 'Askıya Alındı'
     };
 
-    const handleStatusUpdate = async (subId, newStatus) => {
-        await updateSubscriber(subId, { status: newStatus });
+    const getSubscriberDocId = (subscriberOrId) => {
+        if (!subscriberOrId) return null;
+        if (typeof subscriberOrId === 'string') return subscriberOrId;
+        return subscriberOrId.firestoreId || subscriberOrId.id || null;
+    };
+
+    const getMenuId = (subscriber) => getSubscriberDocId(subscriber) || subscriber?.id || null;
+    const normalizeText = (value) => String(value ?? '').toLocaleLowerCase('tr-TR');
+
+    const handleStatusUpdate = async (subscriber, newStatus) => {
+        const subscriberDocId = getSubscriberDocId(subscriber);
+        if (!subscriberDocId) return;
+        await updateSubscriber(subscriberDocId, { status: newStatus });
         setActiveMenu(null);
     };
 
@@ -41,11 +52,12 @@ const Subscribers = () => {
         setSelectedSubscriber(sub);
         setIsSubscriberDrawerOpen(true);
         setActiveMenu(null);
+        setDeleteConfirmId(null);
     };
 
     const handleSaveSubscriber = async (data) => {
         if (selectedSubscriber) {
-            await updateSubscriber(selectedSubscriber.id, data);
+            await updateSubscriber(getSubscriberDocId(selectedSubscriber), data);
         } else {
             let maxId = -1;
             subscribers.forEach(sub => {
@@ -62,16 +74,21 @@ const Subscribers = () => {
         }
         setIsSubscriberDrawerOpen(false);
         setSelectedSubscriber(null);
+        setActiveMenu(null);
+        setDeleteConfirmId(null);
     };
 
-    const handleDelete = async (subId) => {
-        if (deleteConfirmId === subId) {
-            await deleteSubscriber(subId);
+    const handleDelete = async (subscriber) => {
+        const subscriberDocId = getSubscriberDocId(subscriber);
+        if (!subscriberDocId) return;
+
+        if (deleteConfirmId === subscriberDocId) {
+            await deleteSubscriber(subscriberDocId);
             useStore.getState().addNotification('Abone başarıyla silindi.', 'success');
             setActiveMenu(null);
             setDeleteConfirmId(null);
         } else {
-            setDeleteConfirmId(subId);
+            setDeleteConfirmId(subscriberDocId);
             useStore.getState().addNotification('Silmek için tekrar tıklayın.', 'warning');
             setTimeout(() => setDeleteConfirmId(null), 3000);
         }
@@ -118,11 +135,11 @@ const Subscribers = () => {
         }, { All: 0, Active: 0, Pending: 0, Suspended: 0 });
     }, [subscribers]);
     const displaySubscribers = useMemo(() => {
-        const lowerSearch = (searchTerm || '').toLowerCase();
+        const lowerSearch = normalizeText(searchTerm);
         let filtered = subscribers.filter(sub => {
-            const matchesSearch = String(sub.name || '').toLowerCase().includes(lowerSearch) ||
+            const matchesSearch = normalizeText(sub?.name).includes(lowerSearch) ||
                 String(sub.phone || '').includes(searchTerm || '') ||
-                String(sub.address || '').toLowerCase().includes(lowerSearch) ||
+                normalizeText(sub?.address).includes(lowerSearch) ||
                 (sub.legacyId && String(sub.legacyId).includes(searchTerm || ''));
             const matchesType = filterType === 'All' || 
                 (filterType === 'Corporate' && sub.isCorporate) || 
@@ -133,9 +150,9 @@ const Subscribers = () => {
         // Apply Sorting
         filtered.sort((a, b) => {
             if (sortOption === 'name_asc') {
-                return (a.name || '').localeCompare(b.name || '');
+                return String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'tr');
             } else if (sortOption === 'name_desc') {
-                return (b.name || '').localeCompare(a.name || '');
+                return String(b?.name ?? '').localeCompare(String(a?.name ?? ''), 'tr');
             } else if (sortOption === 'oldest') {
                 return parseInt(a.id) - parseInt(b.id);
             } else {
@@ -154,7 +171,7 @@ const Subscribers = () => {
         if (selectedIds.length === displaySubscribers.length && displaySubscribers.length > 0) {
             setSelectedIds([]);
         } else {
-            setSelectedIds(displaySubscribers.map(sub => sub.id));
+            setSelectedIds(displaySubscribers.map(sub => getSubscriberDocId(sub)).filter(Boolean));
         }
     }, [selectedIds, displaySubscribers]);
 
@@ -169,6 +186,7 @@ const Subscribers = () => {
     }, []);
 
     const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
         if (deleteConfirmId === 'bulk') {
             await bulkDeleteSubscribers(selectedIds);
             setSelectedIds([]);
@@ -182,13 +200,19 @@ const Subscribers = () => {
     };
 
     const handleBulkStatusUpdate = async (status) => {
+        if (selectedIds.length === 0) return;
         await bulkUpdateSubscribers(selectedIds, { status });
         setSelectedIds([]);
+        setDeleteConfirmId(null);
+        useStore.getState().addNotification('Seçili aboneler güncellendi.', 'success');
     };
 
     const handleBulkCorporateUpdate = async (isCorporate) => {
+        if (selectedIds.length === 0) return;
         await bulkUpdateSubscribers(selectedIds, { isCorporate });
         setSelectedIds([]);
+        setDeleteConfirmId(null);
+        useStore.getState().addNotification('Seçili abone tipi güncellendi.', 'success');
     };
 
     const formatDate = (dateString) => {
@@ -198,17 +222,22 @@ const Subscribers = () => {
         return date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
+    const getSubscriberInitial = (name) => {
+        const normalizedName = String(name ?? '').trim();
+        return normalizedName ? normalizedName.charAt(0) : '?';
+    };
+
     return (
         <div className="p-4 md:p-8 bg-slate-50 min-h-screen w-full overflow-hidden selection:bg-brand-primary/10">
             {/* Header section with Stats & Search */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-8">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6">
                 <div>
                     <p className="text-brand-primary text-[10px] font-black uppercase tracking-[0.2em] mb-1">Müşteri Portföyü</p>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight font-display">Aboneler</h1>
+                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display break-words">Aboneler</h1>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-4">
                         <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5"><UserCheck size={14} className="shrink-0"/> <span className="hidden sm:inline">Aktif Abone:</span><span className="sm:hidden">Aktif:</span> {statusCounts.Active}</span>
                         <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-1.5"><TrendingUp size={14} className="shrink-0"/> <span className="hidden sm:inline">Bekleyen:</span><span className="sm:hidden">Bek.:</span> {statusCounts.Pending}</span>
-                        <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-600 border border-rose-100 flex items-center gap-1.5"><UserMinus size={14} className="shrink-0"/> <span className="hidden sm:inline">Askıda Olan:</span><span className="sm:hidden">Askı:</span> {statusCounts.Suspended}</span>
+                        <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-600 border border-rose-100 flex items-center gap-1.5"><UserMinus size={14} className="shrink-0"/> <span className="hidden sm:inline">AskÄ±da Olan:</span><span className="sm:hidden">AskÄ±:</span> {statusCounts.Suspended}</span>
                     </div>
                 </div>
 
@@ -280,7 +309,7 @@ const Subscribers = () => {
                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors" size={20} />
                     <input
                         type="text"
-                        placeholder="İsim, telefon veya eski no ile ara..."
+                        placeholder="Ä°sim, telefon veya eski no ile ara..."
                         className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary focus:bg-white transition-all font-bold text-sm shadow-inner"
                         value={searchTerm}
                         onChange={(e) => {
@@ -325,24 +354,24 @@ const Subscribers = () => {
             {/* Mobile Cards (Visible only on small screens) */}
             <div className="lg:hidden space-y-4 mb-8">
                 {paginatedSubscribers.map(sub => (
-                    <div key={sub.id} className="premium-card p-6 relative">
+                    <div key={getSubscriberDocId(sub) || sub.id} className="premium-card p-6 relative">
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-xl">
-                                    {sub.name ? sub.name.charAt(0) : '?'}
+                                    {getSubscriberInitial(sub.name)}
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-900">{sub.name}</h3>
                                     <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest">{sub.id}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setActiveMenu(activeMenu === sub.id ? null : sub.id)} className="p-2 text-slate-400">
+                            <button onClick={() => setActiveMenu(activeMenu === getMenuId(sub) ? null : getMenuId(sub))} className="p-2 text-slate-400">
                                 <MoreHorizontal size={20} />
                             </button>
                         </div>
                         <div className="space-y-3">
                             <div className="flex items-center gap-3 text-sm text-slate-600 font-bold">
-                                <Phone size={16} className="text-brand-primary" /> {sub.phone}
+                                <Phone size={16} className="text-brand-primary" /> <span className="truncate">{sub.phone}</span>
                             </div>
                             <div className="flex items-start gap-3 text-xs text-slate-500 font-medium">
                                 <MapPin size={16} className="text-slate-300 mt-0.5 shrink-0" /> {sub.address}
@@ -357,7 +386,7 @@ const Subscribers = () => {
                             </div>
                         </div>
 
-                        {activeMenu === sub.id && (
+                        {activeMenu === getMenuId(sub) && (
                             <div className="fixed inset-0 z-[100] sm:relative sm:inset-auto">
                                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm sm:hidden" onClick={() => setActiveMenu(null)}></div>
                                 <div className="absolute right-4 left-4 top-1/2 -translate-y-1/2 sm:top-14 sm:translate-y-0 sm:left-auto sm:right-0 glass-dark rounded-[2.5rem] shadow-2xl z-[110] w-auto sm:w-72 p-3 animate-in fade-in zoom-in duration-200 border border-white/10">
@@ -371,25 +400,25 @@ const Subscribers = () => {
                                             <div className="w-8 h-8 rounded-xl bg-brand-primary/20 flex items-center justify-center text-brand-primary group-hover:scale-110 transition-transform">
                                                 <Edit2 size={16} />
                                             </div>
-                                            <span>BİLGİLERİ GÜNCELLE</span>
+                                            <span>GÜNCELLE</span>
                                         </button>
 
                                         <div className="grid grid-cols-3 gap-2">
-                                            <button onClick={() => handleStatusUpdate(sub.id, 'Active')} className="h-14 flex flex-col items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all group" title="Aktif Yap">
+                                                            <button onClick={() => handleStatusUpdate(sub, 'Active')} className="h-14 flex flex-col items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all group" title="Aktif Yap">
                                                 <CheckCircle size={18} className="mb-1" />
                                                 <span className="text-[8px] font-black uppercase tracking-tighter">AKTİF</span>
                                             </button>
-                                            <button onClick={() => handleStatusUpdate(sub.id, 'Pending')} className="h-14 flex flex-col items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-white transition-all group" title="Beklemeye Al">
+                                                            <button onClick={() => handleStatusUpdate(sub, 'Pending')} className="h-14 flex flex-col items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-white transition-all group" title="Beklemeye Al">
                                                 <TrendingUp size={18} className="mb-1" />
                                                 <span className="text-[8px] font-black uppercase tracking-tighter">BEKLE</span>
                                             </button>
-                                            <button onClick={() => handleStatusUpdate(sub.id, 'Suspended')} className="h-14 flex flex-col items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all group" title="Askıya Al">
+                                                            <button onClick={() => handleStatusUpdate(sub, 'Suspended')} className="h-14 flex flex-col items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all group" title="AskÄ±ya Al">
                                                 <XCircle size={18} className="mb-1" />
                                                 <span className="text-[8px] font-black uppercase tracking-tighter">ASKI</span>
                                             </button>
                                         </div>
 
-                                        <button onClick={() => handleDelete(sub.id)} className="w-full h-14 px-6 rounded-2xl text-[10px] font-black text-rose-100 bg-rose-500/10 hover:bg-rose-500 hover:text-white transition-all flex items-center gap-4 border border-rose-500/20 group">
+                                                            <button onClick={() => handleDelete(sub)} className="w-full h-14 px-6 rounded-2xl text-[10px] font-black text-rose-100 bg-rose-500/10 hover:bg-rose-500 hover:text-white transition-all flex items-center gap-4 border border-rose-500/20 group">
                                             <div className="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform bg-white/5">
                                                 <Trash2 size={16} />
                                             </div>
@@ -405,11 +434,11 @@ const Subscribers = () => {
 
             {/* Subscribers Table (Desktop only) */}
             <div className={`hidden lg:block premium-card ${activeMenu ? 'overflow-visible z-50 relative' : 'overflow-hidden'}`}>
-                <div className={`scrollbar-hide ${activeMenu ? 'overflow-visible' : 'overflow-x-auto'}`}>
-                    <table className="w-full text-left">
+                <div className="overflow-visible">
+                    <table className="w-full table-fixed text-left">
                         <thead className="bg-slate-50/50 border-b border-slate-100 text-slate-400 text-[10px] uppercase font-black tracking-[0.2em]">
                             <tr>
-                                <th className="px-5 py-4 w-10">
+                                <th className="px-3 py-4 w-10">
                                     <div className="flex items-center justify-center">
                                         <input
                                             type="checkbox"
@@ -419,13 +448,13 @@ const Subscribers = () => {
                                         />
                                     </div>
                                 </th>
-                                <th className="px-5 py-4">Abone Bilgisi</th>
-                                <th className="px-5 py-4">İletişim & Adres</th>
-                                <th className="px-5 py-4 text-center">İşletme</th>
-                                <th className="px-5 py-4 text-center">Ürün & Miktar</th>
-                                <th className="px-5 py-4 text-center">Durum</th>
-                                <th className="px-5 py-4">Sonraki Teslimat</th>
-                                <th className="px-5 py-4 text-right">İşlem</th>
+                                <th className="px-3 py-4 w-[21%]">Abone Bilgisi</th>
+                                <th className="px-3 py-4 w-[24%]">İletişim & Adres</th>
+                                <th className="px-3 py-4 w-[8%] text-center">İşletme</th>
+                                <th className="px-3 py-4 w-[15%] text-center">Ürün & Miktar</th>
+                                <th className="px-3 py-4 w-[12%] text-center">Durum</th>
+                                <th className="px-3 py-4 w-[14%]">Sonraki Teslimat</th>
+                                <th className="px-3 py-4 w-[6%] text-right">Eylem</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/50">
@@ -437,7 +466,7 @@ const Subscribers = () => {
                                                 <Users size={48} />
                                             </div>
                                             <div>
-                                                <p className="text-xl font-black text-slate-800 font-display">Abonelik Kaydı Bulunamadı</p>
+                                                <p className="text-xl font-black text-slate-800 font-display">Abonelik Kaydı Bulunamadı±</p>
                                                 <p className="text-sm text-slate-400 font-medium mt-1">Sisteme henüz bir abone kaydı girilmemiş veya arama kriteri yanlış.</p>
                                             </div>
                                         </div>
@@ -445,24 +474,24 @@ const Subscribers = () => {
                                 </tr>
                             ) : (
                                 paginatedSubscribers.map((sub, idx) => (
-                                    <tr key={sub.id} className={`hover:bg-slate-50/80 transition-all duration-200 group ${selectedIds.includes(sub.id) ? 'bg-brand-primary/[0.02]' : ''}`}>
-                                        <td className="px-5 py-5 w-10">
+                                    <tr key={sub.firestoreId || sub.id} className={`hover:bg-slate-50/80 transition-all duration-200 group ${selectedIds.includes(getSubscriberDocId(sub)) ? 'bg-brand-primary/[0.02]' : ''}`}>
+                                        <td className="px-3 py-4 w-10">
                                             <div className="flex items-center justify-center">
                                                 <input
                                                     type="checkbox"
                                                     className="w-5 h-5 rounded-lg border-2 border-slate-200 text-brand-primary focus:ring-brand-primary/20 transition-all cursor-pointer"
-                                                    checked={selectedIds.includes(sub.id)}
-                                                    onChange={() => toggleSelect(sub.id)}
+                                                    checked={selectedIds.includes(getSubscriberDocId(sub))}
+                                                    onChange={() => toggleSelect(getSubscriberDocId(sub))}
                                                 />
                                             </div>
                                         </td>
-                                        <td className="px-5 py-5">
-                                            <div className="flex items-center gap-6">
-                                                <div className="w-16 h-16 bg-slate-900 text-white rounded-[1.75rem] flex items-center justify-center font-black text-2xl shadow-xl transition-all duration-300 group-hover:bg-brand-primary">
-                                                    {sub.name ? sub.name.charAt(0) : '?'}
+                                        <td className="px-3 py-4">
+                                            <div className="flex items-center gap-4 min-w-0">
+                                                <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-lg shadow-xl transition-all duration-300 group-hover:bg-brand-primary shrink-0">
+                                                    {getSubscriberInitial(sub.name)}
                                                 </div>
-                                                <div className="overflow-hidden">
-                                                    <h3 className="font-black text-slate-900 text-lg tracking-tight leading-tight mb-1 truncate max-w-[180px]" title={sub.name}>{sub.name}</h3>
+                                                <div className="overflow-hidden min-w-0">
+                                                    <h3 className="font-black text-slate-900 text-sm tracking-tight leading-tight mb-1 truncate" title={sub.name}>{sub.name}</h3>
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <span className="text-[10px] font-black text-brand-primary bg-brand-primary/5 px-2.5 py-1 rounded-lg border border-brand-primary/10 tracking-widest shrink-0">{String(sub.id).match(/^\d+$/) ? String(sub.id).padStart(4, '0') : sub.id}</span>
                                                         {sub.legacyId && (
@@ -472,19 +501,19 @@ const Subscribers = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-5">
+                                        <td className="px-3 py-4">
                                             <div className="space-y-1.5">
-                                                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                                                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-700">
                                                     <Phone size={14} className="text-brand-primary" />
-                                                    {sub.phone}
+                                                    <span className="truncate">{sub.phone}</span>
                                                 </div>
-                                                <div className="flex items-start gap-2 text-[11px] font-medium text-slate-400 max-w-[250px] overflow-hidden">
+                                                <div className="flex items-start gap-2 text-[10px] font-medium text-slate-400 overflow-hidden">
                                                     <MapPin size={14} className="text-slate-300 mt-0.5 shrink-0" />
                                                     <span className="line-clamp-2 break-words text-left">{sub.address}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-5 text-center">
+                                        <td className="px-3 py-4 text-center">
                                             <div className="flex justify-center">
                                                 {sub.isCorporate ? (
                                                     <div className="w-10 h-10 bg-brand-primary/10 text-brand-primary rounded-xl flex items-center justify-center shadow-sm border border-brand-primary/20" title="Kurumsal">
@@ -497,15 +526,15 @@ const Subscribers = () => {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-5 py-5 text-center">
+                                        <td className="px-3 py-4 text-center">
                                             <div className="flex flex-col items-center justify-center">
-                                                <span className="text-sm font-black text-slate-800">{sub.product || '-'}</span>
-                                                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg mt-1 font-bold">x{sub.quantity || 1} Miktar</span>
+                                                <span className="text-xs font-black text-slate-800 text-center line-clamp-2">{sub.product || '-'}</span>
+                                                <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg mt-1 font-bold">x{sub.quantity || 1}</span>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-5">
+                                        <td className="px-3 py-4">
                                             <div className="flex items-center justify-center">
-                                                <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${sub.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm ${sub.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     sub.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         'bg-rose-50 text-rose-600 border-rose-100'
                                                     }`}>
@@ -513,32 +542,32 @@ const Subscribers = () => {
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-all">
-                                                    <Calendar size={18} />
+                                        <td className="px-3 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-slate-900 group-hover:text-white transition-all shrink-0">
+                                                    <Calendar size={16} />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-black text-slate-900 leading-tight">{formatDate(sub.nextDelivery || sub.nextRenewal)}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Teslimat Tarihi</p>
+                                                    <p className="text-xs font-black text-slate-900 leading-tight">{formatDate(sub.nextDelivery || sub.nextRenewal)}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Teslimat</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-5 text-right w-24 relative">
+                                        <td className="px-3 py-4 text-right w-20 relative overflow-visible">
                                             <button
-                                                onClick={() => setActiveMenu(activeMenu === sub.id ? null : sub.id)}
-                                                className={`p-3.5 rounded-2xl transition-all ${activeMenu === sub.id ? 'bg-slate-900 text-white shadow-xl rotate-90 scale-110' : 'text-slate-300 hover:text-slate-900 hover:bg-slate-100'}`}
+                                                onClick={() => setActiveMenu(activeMenu === getMenuId(sub) ? null : getMenuId(sub))}
+                                                className={`p-3.5 rounded-2xl transition-all ${activeMenu === getMenuId(sub) ? 'bg-slate-900 text-white shadow-xl rotate-90 scale-110' : 'text-slate-300 hover:text-slate-900 hover:bg-slate-100'}`}
                                             >
-                                                <MoreHorizontal size={24} />
+                                                <MoreHorizontal size={20} />
                                             </button>
 
-                                            {activeMenu === sub.id && (
+                                            {activeMenu === getMenuId(sub) && (
                                                 <>
                                                     <div
                                                         className="fixed inset-0 z-[55] cursor-default bg-transparent"
                                                         onClick={() => setActiveMenu(null)}
                                                     />
-                                                    <div className={`absolute right-12 ${idx > paginatedSubscribers.length - 3 ? 'bottom-0' : 'top-0'} glass-dark rounded-[2.5rem] shadow-2xl z-[60] w-80 p-4 animate-in fade-in zoom-in duration-200 border border-white/10`}>
+                                                    <div className={`absolute right-full mr-2 ${idx > paginatedSubscribers.length - 3 ? 'bottom-0' : 'top-0'} glass-dark rounded-[2.5rem] shadow-2xl z-[60] w-72 max-w-[calc(100vw-8rem)] p-4 animate-in fade-in zoom-in duration-200 border border-white/10`}>
                                                         <div className="bg-white/5 px-6 py-4 rounded-[1.8rem] mb-4 border border-white/5">
                                                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-primary mb-1">Müşteri Seçenekleri</p>
                                                             <h4 className="text-sm font-black text-white truncate leading-tight">{sub.name}</h4>
@@ -551,37 +580,37 @@ const Subscribers = () => {
                                                                     <Edit2 size={18} />
                                                                 </div>
                                                                 <div className="text-left">
-                                                                    <span className="block">BİLGİLERİ DÜZENLE</span>
-                                                                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest group-hover:text-slate-400 transition-colors">Adres, telefon ve ürün ayarları</span>
+                                                                    <span className="block">BÄ°LGÄ°LERÄ° DÃœZENLE</span>
+                                                                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest group-hover:text-slate-400 transition-colors">Adres ve telefon ayarları</span>
                                                                 </div>
                                                             </button>
 
                                                             {/* Status Actions Grid */}
                                                             <div className="grid grid-cols-3 gap-3">
-                                                                 <button onClick={() => handleStatusUpdate(sub.id, 'Active')} className="h-20 flex flex-col items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all group" title="Aktif Yap">
+                                                                <button onClick={() => handleStatusUpdate(sub, 'Active')} className="h-20 flex flex-col items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all group" title="Aktif Yap">
                                                                      <div className="relative mb-2">
                                                                          <CheckCircle size={22} />
                                                                      </div>
                                                                      <span className="text-[9px] font-black uppercase tracking-widest">AKTİF</span>
                                                                  </button>
-                                                                <button onClick={() => handleStatusUpdate(sub.id, 'Pending')} className="h-20 flex flex-col items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-all group" title="Beklemeye Al">
+                                                                <button onClick={() => handleStatusUpdate(sub, 'Pending')} className="h-20 flex flex-col items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-all group" title="Beklemeye Al">
                                                                     <TrendingUp size={22} className="mb-2" />
                                                                     <span className="text-[9px] font-black uppercase tracking-widest">BEKLE</span>
                                                                 </button>
-                                                                <button onClick={() => handleStatusUpdate(sub.id, 'Suspended')} className="h-20 flex flex-col items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all group" title="Askıya Al">
+                                                                <button onClick={() => handleStatusUpdate(sub, 'Suspended')} className="h-20 flex flex-col items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all group" title="Askıya Al">
                                                                     <XCircle size={22} className="mb-2" />
                                                                     <span className="text-[9px] font-black uppercase tracking-widest">ASKI</span>
                                                                 </button>
                                                             </div>
 
                                                             {/* Danger Zone */}
-                                                            <button onClick={() => handleDelete(sub.id)} className="w-full h-16 px-6 rounded-2xl text-[11px] font-black text-rose-100 bg-rose-500/10 hover:bg-rose-500 hover:text-white transition-all flex items-center gap-4 border border-rose-500/20 group">
+                                                            <button onClick={() => handleDelete(sub)} className="w-full h-16 px-6 rounded-2xl text-[11px] font-black text-rose-100 bg-rose-500/10 hover:bg-rose-500 hover:text-white transition-all flex items-center gap-4 border border-rose-500/20 group">
                                                                 <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 group-hover:bg-white group-hover:text-rose-500 transition-all">
                                                                     <Trash2 size={18} />
                                                                 </div>
                                                                 <div className="text-left">
                                                                     <span className="block">ABONELİĞİ SİL</span>
-                                                                    <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">Geri döndürülemez İşlem</span>
+                                                                    <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">Geri döndürülemez eylem</span>
                                                                 </div>
                                                             </button>
                                                         </div>
@@ -601,7 +630,7 @@ const Subscribers = () => {
                             onClick={handleLoadMore}
                             className="bg-white border border-slate-200 text-slate-600 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-3"
                         >
-                            <RefreshCw size={18} className="text-brand-primary" /> DAHA FAZLA YÜKLE ({displaySubscribers.length - paginatedSubscribers.length} kayıt kaldı)
+                            <RefreshCw size={18} className="text-brand-primary" /> DAHA FAZLA YÃœKLE ({displaySubscribers.length - paginatedSubscribers.length} kayÄ±t kaldÄ±)
                         </button>
                     </div>
                 )}
@@ -630,17 +659,17 @@ const Subscribers = () => {
                                 {selectedIds.length}
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest">Seçili Abone</p>
-                                <p className="text-xs font-bold text-white uppercase tracking-tighter">İşlem Bekliyor</p>
+                                <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest">SeÃ§ili Abone</p>
+                                <p className="text-xs font-bold text-white uppercase tracking-tighter">Ä°ÅŸlem Bekliyor</p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => handleBulkStatusUpdate('Active')}
                                 className="w-36 h-12 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-emerald-500/20"
                             >
-                                <CheckCircle size={16} /> AKTİF YAP
+                                <CheckCircle size={16} /> AKTÄ°F YAP
                             </button>
                             <button
                                 onClick={() => handleBulkStatusUpdate('Suspended')}
@@ -659,12 +688,12 @@ const Subscribers = () => {
                                  onClick={handleBulkDelete}
                                  className={`px-5 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-xl ${deleteConfirmId === 'bulk' ? 'bg-rose-600 text-white' : 'bg-white text-slate-900 hover:bg-rose-50'}`}
                              >
-                                 <Trash2 size={16} /> {deleteConfirmId === 'bulk' ? 'SİLMEYİ ONAYLA' : 'SEÇİLİLERİ SİL'}
+                                 <Trash2 size={16} /> {deleteConfirmId === 'bulk' ? 'SÄ°LMEYÄ° ONAYLA' : 'SEÃ‡Ä°LÄ°LERÄ° SÄ°L'}
                              </button>
                             <button
                                 onClick={() => setSelectedIds([])}
                                 className="p-3.5 text-slate-400 hover:text-white transition-colors"
-                                title="Seçimi Temizle"
+                                title="SeÃ§imi Temizle"
                             >
                                 <RefreshCw size={20} />
                             </button>
@@ -677,3 +706,5 @@ const Subscribers = () => {
 };
 
 export default Subscribers;
+
+

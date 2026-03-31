@@ -43,11 +43,24 @@ const Dealers = () => {
         balance: 0
     });
 
+    const getSubscriberDocId = (subscriberOrId) => {
+        if (!subscriberOrId) return null;
+        if (typeof subscriberOrId === 'string') return subscriberOrId;
+        return subscriberOrId.firestoreId || subscriberOrId.id || null;
+    };
+
+    const getDealerInitial = (value) => {
+        const normalized = String(value ?? '').trim();
+        return normalized ? normalized.charAt(0).toLocaleUpperCase('tr-TR') : '?';
+    };
+
+    const normalizeText = (value) => String(value ?? '').toLocaleLowerCase('tr-TR');
+
     const dealers = subscribers.filter(s => {
-        const typeMatch = (s.type || '').toLowerCase().includes('bayi') || s.type === 'bayi' || s.type === 'corporate';
-        const search = (searchTerm || '').toLowerCase();
-        const nameMatch = (s.name || '').toLowerCase().includes(search);
-        const phoneMatch = (s.phone || '').includes(searchTerm);
+        const typeMatch = normalizeText(s?.type).includes('bayi') || s.type === 'bayi' || s.type === 'corporate';
+        const search = normalizeText(searchTerm);
+        const nameMatch = normalizeText(s?.name).includes(search);
+        const phoneMatch = String(s?.phone || '').includes(searchTerm || '');
         return typeMatch && (nameMatch || phoneMatch);
     });
 
@@ -81,20 +94,22 @@ const Dealers = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (isEditMode && selectedDealer) {
-            await updateSubscriber(selectedDealer.id, formData);
+            await updateSubscriber(getSubscriberDocId(selectedDealer), formData);
         } else {
             await addSubscriber(formData);
         }
         setIsAddDrawerOpen(false);
     };
 
-    const handleDelete = async (id) => {
-        if (deleteConfirmId === id) {
-            await deleteSubscriber(id);
+    const handleDelete = async (dealer) => {
+        const dealerDocId = getSubscriberDocId(dealer);
+        if (!dealerDocId) return;
+        if (deleteConfirmId === dealerDocId) {
+            await deleteSubscriber(dealerDocId);
             useStore.getState().addNotification('Bayi başarıyla silindi.', 'success');
             setDeleteConfirmId(null);
         } else {
-            setDeleteConfirmId(id);
+            setDeleteConfirmId(dealerDocId);
             useStore.getState().addNotification('Silmek için tekrar tıklayın.', 'warning');
             setTimeout(() => setDeleteConfirmId(null), 3000);
         }
@@ -185,12 +200,12 @@ const Dealers = () => {
             {/* Dealers Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {dealers.map(dealer => (
-                    <div key={dealer.id} className={`premium-card bg-white border border-slate-100 group hover:-translate-y-1 transition-all duration-200 ${deleteConfirmId === dealer.id ? 'ring-2 ring-rose-500 bg-rose-50/10' : ''}`}>
+                    <div key={getSubscriberDocId(dealer) || dealer.id} className={`premium-card bg-white border border-slate-100 group hover:-translate-y-1 transition-all duration-200 ${deleteConfirmId === getSubscriberDocId(dealer) ? 'ring-2 ring-rose-500 bg-rose-50/10' : ''}`}>
                         <div className="p-6">
                             <div className="flex justify-between items-start mb-6">
                                 <div className="flex items-center gap-4">
                                     <div className="w-14 h-14 bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black text-xl border border-slate-100 group-hover:from-brand-primary group-hover:to-brand-primary group-hover:text-white transition-all">
-                                        {dealer.name?.charAt(0).toUpperCase()}
+                                        {getDealerInitial(dealer.name)}
                                     </div>
                                     <div>
                                         <h3 className="font-black text-slate-900 uppercase tracking-tight leading-none mb-1 group-hover:text-brand-primary transition-colors">{dealer.name}</h3>
@@ -203,7 +218,7 @@ const Dealers = () => {
                                     <button onClick={() => handleOpenEdit(dealer)} className="p-2 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/5 rounded-xl transition-all">
                                         <Edit size={16} />
                                     </button>
-                                     <button onClick={() => handleDelete(dealer.id)} className={`p-2 rounded-xl transition-all ${deleteConfirmId === dealer.id ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50'}`}>
+                                     <button onClick={() => handleDelete(dealer)} className={`p-2 rounded-xl transition-all ${deleteConfirmId === getSubscriberDocId(dealer) ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50'}`}>
                                          <Trash2 size={16} />
                                      </button>
                                 </div>
