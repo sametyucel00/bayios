@@ -1,36 +1,48 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import useStore from './store/useStore';
-import Layout from './layouts/Layout';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Accounting from './pages/Accounting';
-import Couriers from './pages/Couriers';
-import Reconciliation from './pages/Reconciliation';
-import Analytics from './pages/Analytics';
 import SubscriptionGuard from './components/SubscriptionGuard';
-import CustomerPortal from './pages/CustomerPortal';
-import Suppliers from './pages/Suppliers';
-import Subscribers from './pages/Subscribers';
-import Finance from './pages/Finance';
-import Calls from './pages/Calls';
-import Orders from './pages/Orders';
-import DailyClosingForm from './components/DailyClosingForm';
-import CourierPortal from './pages/CourierPortal';
 import Login from './pages/Login';
-import Settings from './pages/Settings';
-import Expenses from './pages/Expenses';
-import DeveloperPanel from './pages/DeveloperPanel';
 import IncomingCallDrawer from './components/IncomingCallDrawer';
 import NotificationToast from './components/NotificationToast';
-import Dealers from './pages/Dealers';
 
 import { rtdb } from './lib/firebase';
 import { ref, onValue, update } from "firebase/database";
-import { updateLocationInFirestore } from './services/firestoreService';
 import { installTurkishTextFixer } from './utils/turkishTextFixer';
 import { safeGetItem, safeRemoveItem, safeSetItem } from './utils/safeStorage';
 
+const Layout = lazy(() => import('./layouts/Layout'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Products = lazy(() => import('./pages/Products'));
+const Accounting = lazy(() => import('./pages/Accounting'));
+const Couriers = lazy(() => import('./pages/Couriers'));
+const Reconciliation = lazy(() => import('./pages/Reconciliation'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const CustomerPortal = lazy(() => import('./pages/CustomerPortal'));
+const Suppliers = lazy(() => import('./pages/Suppliers'));
+const Subscribers = lazy(() => import('./pages/Subscribers'));
+const Finance = lazy(() => import('./pages/Finance'));
+const Calls = lazy(() => import('./pages/Calls'));
+const Orders = lazy(() => import('./pages/Orders'));
+const DailyClosingForm = lazy(() => import('./components/DailyClosingForm'));
+const CourierPortal = lazy(() => import('./pages/CourierPortal'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const DeveloperPanel = lazy(() => import('./pages/DeveloperPanel'));
+const Dealers = lazy(() => import('./pages/Dealers'));
+
 const isDebugLoggingEnabled = import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true';
+
+function ScreenFallback() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="text-center text-slate-500">
+        <div className="w-8 h-8 mx-auto mb-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+        <p className="text-xs font-black uppercase tracking-widest">Yukleniyor</p>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const storeUser = useStore(state => state.currentUser);
@@ -48,10 +60,12 @@ function App() {
   }, [storeUser?.id, storeUser?.role, initFirestoreSync]);
 
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      return () => {};
+    }
     return installTurkishTextFixer(document.body);
   }, []);
 
-  // Request Notification Permission
   useEffect(() => {
     if (storeUser?.id) {
       import('./services/notificationService').then(({ requestNotificationPermission, onMessageListener }) => {
@@ -60,9 +74,10 @@ function App() {
           if (isDebugLoggingEnabled) {
             console.log("Push notification received in foreground:", payload);
           }
-          // Show local notification or toast if needed
           useStore.getState().addNotification(payload.notification.title + ": " + payload.notification.body, "info");
         });
+      }).catch((error) => {
+        console.warn('Notification service could not be initialized.', error);
       });
     }
   }, [storeUser?.id]);
@@ -73,25 +88,24 @@ function App() {
     const userRole = storeUser.role?.toLowerCase();
     const isStaff = userRole === 'admin' || userRole === 'courier';
     const businessId = userRole === 'admin' ? storeUser.id : storeUser.businessId;
-    
+
     if (!isStaff || !businessId) return;
 
     const callRef = ref(rtdb, `active_calls/${businessId}`);
     const unsubscribe = onValue(callRef, (snapshot) => {
       const data = snapshot.val();
       const currentActiveCall = useStore.getState().activeCall;
-      
+
       if (isDebugLoggingEnabled) {
         console.log("RTDB Sync - Path:", `active_calls/${businessId}`, "Data:", data);
       }
 
       if (!data) {
-        // Only clear if not a manual call initiated by the user
         if (currentActiveCall && !currentActiveCall.manual) {
-           if (isDebugLoggingEnabled) {
-             console.log("RTDB: No active call data, clearing local active call");
-           }
-           clearActiveCall();
+          if (isDebugLoggingEnabled) {
+            console.log("RTDB: No active call data, clearing local active call");
+          }
+          clearActiveCall();
         }
         return;
       }
@@ -100,38 +114,34 @@ function App() {
       let activeDeviceId = null;
       let isManualCall = false;
 
-      // 1. Check if the root data itself has a phone property (Legacy/Direct mode)
       if (data.phone && String(data.phone).trim() !== "") {
         activePhone = data.phone;
         activeDeviceId = 'default';
         isManualCall = data.manual || false;
-      } 
-      // 2. Check nested devices if no direct phone found
-      else {
+      } else {
         for (const [id, deviceData] of Object.entries(data)) {
           if (['businessPhone', 'lastLoginAt', 'lastCallAt', 'phone', 'manual'].includes(id)) continue;
-          
+
           if (deviceData && typeof deviceData === 'object' && deviceData.phone && String(deviceData.phone).trim() !== "") {
             activePhone = deviceData.phone;
             activeDeviceId = id;
             isManualCall = deviceData.manual || false;
             break;
           } else if (typeof deviceData === 'string' && id !== 'businessPhone' && id !== 'lastLoginAt') {
-             activePhone = deviceData;
-             activeDeviceId = id;
-             isManualCall = false;
-             break;
+            activePhone = deviceData;
+            activeDeviceId = id;
+            isManualCall = false;
+            break;
           }
         }
       }
 
       if (!activePhone) {
-        // Only clear if not a manual call initiated by the user
         if (currentActiveCall && !currentActiveCall.manual) {
-            if (isDebugLoggingEnabled) {
-              console.log("RTDB: Resolved active phone is empty, clearing local call.");
-            }
-            clearActiveCall();
+          if (isDebugLoggingEnabled) {
+            console.log("RTDB: Resolved active phone is empty, clearing local call.");
+          }
+          clearActiveCall();
         }
         return;
       }
@@ -142,11 +152,11 @@ function App() {
 
       const phoneStr = String(activePhone).trim();
       const digitCount = (phoneStr.match(/\d/g) || []).length;
-      
-      const isDemoType = phoneStr === "" || phoneStr === "[call_number]" || 
-                        phoneStr.toLowerCase().includes("demo") || 
-                        phoneStr.toLowerCase().includes("undefined") ||
-                        phoneStr.toLowerCase().includes("null");
+
+      const isDemoType = phoneStr === "" || phoneStr === "[call_number]" ||
+        phoneStr.toLowerCase().includes("demo") ||
+        phoneStr.toLowerCase().includes("undefined") ||
+        phoneStr.toLowerCase().includes("null");
 
       if (isDemoType || digitCount < 5) {
         if (currentActiveCall && !currentActiveCall.manual) clearActiveCall();
@@ -154,37 +164,35 @@ function App() {
         const payload = {
           number: phoneStr,
           deviceId: activeDeviceId !== 'default' ? activeDeviceId : null,
-          manual: isManualCall 
+          manual: isManualCall
         };
-        
-        // If it's a new call (different number), update the store
-        if (currentActiveCall?.number !== phoneStr) {
-            if (isDebugLoggingEnabled) {
-              console.log("%c[RTDB CALL]%c New call detected:", "background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;", "", payload);
-            }
-            setActiveCall(payload);
 
-            const store = useStore.getState();
-            const recentCall = store.incomingCalls.find(c => c.number === phoneStr);
-            const timeDiff = recentCall ? (new Date() - new Date(recentCall.timestamp)) : 999999;
-            
-            if(!recentCall || timeDiff > 30000) {
-                store.addIncomingCall(payload);
-            }
+        if (currentActiveCall?.number !== phoneStr) {
+          if (isDebugLoggingEnabled) {
+            console.log("%c[RTDB CALL]%c New call detected:", "background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;", "", payload);
+          }
+          setActiveCall(payload);
+
+          const store = useStore.getState();
+          const recentCall = store.incomingCalls.find(c => c.number === phoneStr);
+          const timeDiff = recentCall ? (new Date() - new Date(recentCall.timestamp)) : 999999;
+
+          if (!recentCall || timeDiff > 30000) {
+            store.addIncomingCall(payload);
+          }
         }
       }
     }, (error) => {
       console.error("RTDB Listener Error (Permissions?):", error);
-      useStore.getState().addNotification("Arama dinleme hatasÄ±! Firebase izinlerini kontrol edin.", "warning");
+      useStore.getState().addNotification("Arama dinleme hatasi! Firebase izinlerini kontrol edin.", "warning");
     });
 
     return () => unsubscribe();
   }, [storeUser, setActiveCall, clearActiveCall]);
 
   useEffect(() => {
-    // Auto Backup logic
     const autoBackupEnabled = safeGetItem('bayios-auto-backup-enabled');
-    if (autoBackupEnabled !== 'false') { // enabled by default or set to true
+    if (autoBackupEnabled !== 'false') {
       const todayString = new Date().toISOString().split('T')[0];
       const lastBackupDate = safeGetItem('bayios-last-backup-date');
 
@@ -226,6 +234,8 @@ function App() {
           return;
         }
         watchId = resolvedWatchId;
+      }).catch((error) => {
+        console.warn('Location tracking could not be initialized.', error);
       });
     }
 
@@ -234,11 +244,10 @@ function App() {
       if (watchId) {
         import('./services/locationService').then(({ stopLocationTracking }) => {
           stopLocationTracking(watchId);
-        });
+        }).catch(() => {});
       }
     };
   }, [storeUser?.id, storeUser?.role]);
-
 
   useEffect(() => {
     if (storeUser?.role?.toLowerCase() === 'customer' && (currentView === 'dashboard' || currentView === 'orders')) {
@@ -254,7 +263,7 @@ function App() {
     useStore.getState().cleanupListeners();
     useStore.getState().setUser(null);
     useStore.getState().clearData();
-    safeRemoveItem('bayios-auto-login'); // Disable auto-login on manual logout
+    safeRemoveItem('bayios-auto-login');
     setCurrentView('dashboard');
   };
 
@@ -286,25 +295,16 @@ function App() {
     clearActiveCall();
   };
 
-  if (!storeUser || !storeUser.id || !storeUser.role) {
-    return <Login onLogin={handleLogin} />;
-  }
-
-  if (storeUser.role?.toLowerCase() === 'developer') {
-    return <DeveloperPanel onLogout={handleLogout} />;
-  }
-
   const renderContent = () => {
     if (!currentView) return null;
 
-    // Special handling for Customer role to prevent admin view crashes
     if (storeUser?.role?.toLowerCase() === 'customer') {
       switch (currentView) {
         case 'market':
-        case 'dashboard': // Fallback for redirected state
+        case 'dashboard':
           return <CustomerPortal user={storeUser} initialTab="market" />;
         case 'my-orders':
-        case 'orders': // Fallback for redirected state
+        case 'orders':
           return <CustomerPortal user={storeUser} initialTab="orders" />;
         case 'settings':
           return <Settings user={storeUser} onLogout={handleLogout} />;
@@ -348,37 +348,55 @@ function App() {
         return (
           <div className="p-8 flex items-center justify-center h-full">
             <div className="text-center text-slate-400">
-              <h2 className="text-2xl font-bold mb-2">YapÄ±m AÅŸamasÄ±nda</h2>
-              <p>"{currentView}" modÃ¼lÃ¼ yakÄ±nda eklenecek.</p>
+              <h2 className="text-2xl font-bold mb-2">Yapim Asamasinda</h2>
+              <p>"{currentView}" modulu yakinda eklenecek.</p>
             </div>
           </div>
         );
     }
   };
 
+  if (!storeUser || !storeUser.id || !storeUser.role) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  if (storeUser.role?.toLowerCase() === 'developer') {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <DeveloperPanel onLogout={handleLogout} />
+      </Suspense>
+    );
+  }
+
   if (storeUser?.role?.toLowerCase() === 'courier') {
-    return <CourierPortal user={storeUser} onLogout={handleLogout} />;
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <CourierPortal user={storeUser} onLogout={handleLogout} />
+      </Suspense>
+    );
   }
 
   return (
-    <SubscriptionGuard>
-      <Layout
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        onLogout={handleLogout}
-        user={storeUser}
-      >
-        {renderContent()}
-      </Layout>
-      <IncomingCallDrawer
-        isOpen={!!activeCall}
-        phone={activeCall?.number}
-        deviceId={activeCall?.deviceId}
-        isManual={activeCall?.manual}
-        onClose={closeActiveCallEverywhere}
-      />
-      <NotificationToast />
-    </SubscriptionGuard>
+    <Suspense fallback={<ScreenFallback />}>
+      <SubscriptionGuard>
+        <Layout
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          onLogout={handleLogout}
+          user={storeUser}
+        >
+          {renderContent()}
+        </Layout>
+        <IncomingCallDrawer
+          isOpen={!!activeCall}
+          phone={activeCall?.number}
+          deviceId={activeCall?.deviceId}
+          isManual={activeCall?.manual}
+          onClose={closeActiveCallEverywhere}
+        />
+        <NotificationToast />
+      </SubscriptionGuard>
+    </Suspense>
   );
 }
 

@@ -1,8 +1,7 @@
-﻿import { StrictMode, Component } from 'react';
+import { StrictMode, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
 import './index.css';
-import App from './App.jsx';
 
 if (typeof window !== 'undefined' && !Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -19,6 +18,27 @@ if (typeof window !== 'undefined' && !Capacitor.isNativePlatform() && 'serviceWo
     }
   });
 }
+
+const rootElement = document.getElementById('root');
+const root = createRoot(rootElement);
+
+const showStartupError = (error) => {
+  root.render(
+    <div style={{ padding: '20px', color: '#b91c1c', background: '#fff', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <h1>Uygulama baslatilamadi.</h1>
+      <pre style={{ whiteSpace: 'pre-wrap' }}>{error?.stack || error?.message || String(error)}</pre>
+      <button onClick={() => window.location.reload()}>Sayfayi Yenile</button>
+    </div>
+  );
+};
+
+window.addEventListener('error', (event) => {
+  console.error('Global startup error:', event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -38,9 +58,9 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '20px', color: 'red', background: '#fff' }}>
-          <h1>Bir hata oluştu.</h1>
+          <h1>Bir hata olustu.</h1>
           <pre>{this.state.error?.toString?.() || 'Bilinmeyen hata'}</pre>
-          <button onClick={() => window.location.reload()}>Sayfayı Yenile</button>
+          <button onClick={() => window.location.reload()}>Sayfayi Yenile</button>
         </div>
       );
     }
@@ -49,12 +69,21 @@ class ErrorBoundary extends Component {
   }
 }
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </StrictMode>
-);
+const boot = async () => {
+  try {
+    const { default: App } = await import('./App.jsx');
 
+    root.render(
+      <StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </StrictMode>
+    );
+  } catch (error) {
+    console.error('App boot failed:', error);
+    showStartupError(error);
+  }
+};
 
+boot();
