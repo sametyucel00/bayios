@@ -35,14 +35,7 @@ const shouldAutoInitNativeServices = false;
 const isDebugLoggingEnabled = import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true';
 
 function ScreenFallback() {
-  return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="text-center text-slate-500">
-        <div className="w-8 h-8 mx-auto mb-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
-        <p className="text-xs font-black uppercase tracking-widest">Yukleniyor</p>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 function App() {

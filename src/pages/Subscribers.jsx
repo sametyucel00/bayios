@@ -237,7 +237,7 @@ const Subscribers = () => {
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-4">
                         <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5"><UserCheck size={14} className="shrink-0"/> <span className="hidden sm:inline">Aktif Abone:</span><span className="sm:hidden">Aktif:</span> {statusCounts.Active}</span>
                         <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-1.5"><TrendingUp size={14} className="shrink-0"/> <span className="hidden sm:inline">Bekleyen:</span><span className="sm:hidden">Bek.:</span> {statusCounts.Pending}</span>
-                        <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-600 border border-rose-100 flex items-center gap-1.5"><UserMinus size={14} className="shrink-0"/> <span className="hidden sm:inline">AskÄ±da Olan:</span><span className="sm:hidden">AskÄ±:</span> {statusCounts.Suspended}</span>
+                        <span className="px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-600 border border-rose-100 flex items-center gap-1.5"><UserMinus size={14} className="shrink-0"/> <span className="hidden sm:inline">Askıda Olan:</span><span className="sm:hidden">Askı:</span> {statusCounts.Suspended}</span>
                     </div>
                 </div>
 
@@ -309,7 +309,7 @@ const Subscribers = () => {
                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors" size={20} />
                     <input
                         type="text"
-                        placeholder="Ä°sim, telefon veya eski no ile ara..."
+                        placeholder="İsim, telefon veya eski no ile ara..."
                         className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary focus:bg-white transition-all font-bold text-sm shadow-inner"
                         value={searchTerm}
                         onChange={(e) => {

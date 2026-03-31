@@ -10,7 +10,7 @@ const Products = () => {
 
     // Prepare display categories
     const displayCategories = [
-        { id: 'all', label: 'TÃ¼mÃ¼' },
+        { id: 'all', label: 'Tümü' },
         ...storeCategories.map(c => ({ id: c.id, label: c.label }))
     ];
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -21,8 +21,8 @@ const Products = () => {
             damacana: 'Damacana',
             pet: 'PET Grubu',
             bardak: 'Bardak Su',
-            tube: 'TÃ¼p Grubu',
-            filter: 'ArÄ±tma/Filtre',
+            tube: 'Tüp Grubu',
+            filter: 'Arıtma/Filtre',
             equipment: 'Ekipman'
         };
         return storeCategories.find(c => c.id === type)?.label || legacy[type] || type || 'Genel';
@@ -125,11 +125,11 @@ const Products = () => {
     const handleDeleteCategory = async (id) => {
         if (deleteConfirmId === id) {
             await deleteCategory(id);
-            useStore.getState().addNotification('Kategori baÅŸarÄ±yla silindi.', 'success');
+            useStore.getState().addNotification('Kategori başarıyla silindi.', 'success');
             setDeleteConfirmId(null);
         } else {
             setDeleteConfirmId(id);
-            useStore.getState().addNotification('Silmek iÃ§in tekrar tÄ±klayÄ±n.', 'warning');
+            useStore.getState().addNotification('Silmek için tekrar tıklayın.', 'warning');
             setTimeout(() => setDeleteConfirmId(null), 3000);
         }
     };
@@ -139,11 +139,11 @@ const Products = () => {
 
         if (deleteConfirmId === product.id) {
             await deleteProduct(product.id);
-            useStore.getState().addNotification('ÃœrÃ¼n baÅŸarÄ±yla silindi.', 'success');
+            useStore.getState().addNotification('Ürün başarıyla silindi.', 'success');
             setDeleteConfirmId(null);
         } else {
             setDeleteConfirmId(product.id);
-            useStore.getState().addNotification('ÃœrÃ¼nÃ¼ silmek iÃ§in tekrar tÄ±klayÄ±n.', 'warning');
+            useStore.getState().addNotification('Ürünü silmek için tekrar tıklayın.', 'warning');
             setTimeout(() => {
                 setDeleteConfirmId(current => current === product.id ? null : current);
             }, 3000);
@@ -228,8 +228,8 @@ const Products = () => {
         <div className="p-4 md:p-10 bg-slate-50 min-h-screen pb-24 md:pb-10 w-full overflow-hidden">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight font-display">ÃœrÃ¼n & Stok</h1>
-                    <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Stok YÃ¼kleme ve Analiz Paneli</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight font-display">Ürün & Stok</h1>
+                    <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Stok Yükleme ve Analiz Paneli</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
                     <div className="flex gap-2">
@@ -250,7 +250,7 @@ const Products = () => {
                         onClick={() => setIsCreateDrawerOpen(true)}
                         className="w-full bg-slate-900 text-white px-6 py-4 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-900/10 hover:bg-brand-primary active:scale-95 flex items-center justify-center gap-2"
                     >
-                        <Plus size={18} /> YENÄ° ÃœRÃœN EKLE
+                        <Plus size={18} /> YENİ ÜRÜN EKLE
                     </button>
                 </div>
             </div>
@@ -268,12 +268,12 @@ const Products = () => {
                             <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 truncate">{cat.label}</h4>
                             <div className="flex items-end justify-between">
                                 <div>
-                                    <div className="text-xl font-black text-slate-900 font-display">{catProducts.length} <span className="text-[10px] text-slate-400">ÃœrÃ¼n</span></div>
+                                    <div className="text-xl font-black text-slate-900 font-display">{catProducts.length} <span className="text-[10px] text-slate-400">Ürün</span></div>
                                     <div className="text-xs font-bold text-brand-primary">{totalStock} <span className="text-[9px] uppercase tracking-tighter">Dolu</span></div>
                                 </div>
                                 {isTracking && (
                                     <div className="text-right">
-                                        <div className="text-xs font-bold text-rose-500">{totalEmpty} <span className="text-[9px] uppercase tracking-tighter">BoÅŸ</span></div>
+                                        <div className="text-xs font-bold text-rose-500">{totalEmpty} <span className="text-[9px] uppercase tracking-tighter">Boş</span></div>
                                     </div>
                                 )}
                             </div>
@@ -288,7 +288,7 @@ const Products = () => {
                         <Package size={20} />
                     </div>
                     <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam ÃœrÃ¼n</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam Ürün</p>
                         <h3 className="text-lg md:text-2xl font-black text-slate-900 font-display">{products.length}</h3>
                     </div>
                 </div>
@@ -306,7 +306,7 @@ const Products = () => {
                         <RefreshCw size={20} className="rotate-180" />
                     </div>
                     <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam BoÅŸ (Ä°ade)</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Toplam Boş (İade)</p>
                         <h3 className="text-lg md:text-2xl font-black text-slate-900 font-display">
                             {products.reduce((acc, p) => acc + (p.emptyStock || 0), 0)}
                         </h3>
@@ -317,7 +317,7 @@ const Products = () => {
                         <Calculator size={20} />
                     </div>
                     <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">KategorÄ° SayÄ±sÄ±</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Kategori Sayısı</p>
                         <h3 className="text-lg md:text-2xl font-black text-slate-900 font-display">{storeCategories.length}</h3>
                     </div>
                 </div>
@@ -343,7 +343,7 @@ const Products = () => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors" size={16} />
                     <input
                         type="text"
-                        placeholder="ÃœrÃ¼n ara..."
+                        placeholder="Ürün ara..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all text-[11px] font-bold"
@@ -369,8 +369,8 @@ const Products = () => {
                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Filter className="text-slate-400" size={24} />
                     </div>
-                    <h3 className="text-lg font-medium text-slate-700">ÃœrÃ¼n bulunamadÄ±</h3>
-                    <p className="text-slate-500">Arama kriterlerinize uygun Ã¼rÃ¼n yok.</p>
+                    <h3 className="text-lg font-medium text-slate-700">Ürün bulunamadı</h3>
+                    <p className="text-slate-500">Arama kriterlerinize uygun ürün yok.</p>
                 </div>
             )}
 
@@ -384,8 +384,8 @@ const Products = () => {
                                     <Package size={28} />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">YENÄ° ÃœRÃœN</h3>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sisteme yeni Ã¼rÃ¼n kaydÄ±</p>
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">YENİ ÜRÜN</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sisteme yeni ürün kaydı</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsCreateDrawerOpen(false)} className="p-3 bg-white rounded-2xl text-slate-400 hover:text-slate-600 shadow-sm transition-colors border border-slate-100">
@@ -395,7 +395,7 @@ const Products = () => {
                         <div className="flex-1 overflow-y-auto p-10 scrollbar-hide">
                             <form onSubmit={handleCreateProduct} className="space-y-8">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n AdÄ±</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Adı</label>
                                     <input
                                         type="text" required
                                         placeholder="Ã–rn: 19L Damacana Su"
@@ -419,7 +419,7 @@ const Products = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n GÃ¶rseli (URL)</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Görseli (URL)</label>
                                     <div className="flex gap-4">
                                         <div className="flex-1 relative">
                                             <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
@@ -440,7 +440,7 @@ const Products = () => {
                                 </div>
                                 <div className="pt-6">
                                     <button type="submit" className="w-full bg-brand-primary text-white font-black py-6 rounded-[2rem] shadow-xl shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all hover:scale-[1.02] active:scale-95 uppercase tracking-widest text-xs">
-                                        ÃœrÃ¼nÃ¼ Kaydet ve YayÄ±nla
+                                        Ürünü Kaydet ve Yayınla
                                     </button>
                                 </div>
                             </form>
@@ -459,7 +459,7 @@ const Products = () => {
                                     <Edit2 size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">DÃœZENLE</h3>
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display uppercase">DÜZENLE</h3>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{selectedProduct.name}</p>
                                 </div>
                             </div>
@@ -470,7 +470,7 @@ const Products = () => {
                         <div className="flex-1 overflow-y-auto p-10 scrollbar-hide">
                             <form onSubmit={handleUpdateProduct} className="space-y-8">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n AdÄ±</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Adı</label>
                                     <input
                                         type="text" required
                                         className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-bold shadow-inner"
@@ -523,7 +523,7 @@ const Products = () => {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">BoÅŸ Stok</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Boş Stok</label>
                                             <input
                                                 type="number"
                                                 className="w-full px-6 py-5 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-black shadow-inner"
@@ -534,7 +534,7 @@ const Products = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">ÃœrÃ¼n GÃ¶rseli (URL)</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Ürün Görseli (URL)</label>
                                     <div className="flex gap-4">
                                         <div className="flex-1 relative">
                                             <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
@@ -548,14 +548,14 @@ const Products = () => {
                                         </div>
                                         {editProductData.imageUrl && (
                                             <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-50 shadow-sm">
-                                                <img src={editProductData.imageUrl} alt="Ã–nizleme" className="w-full h-full object-cover" />
+                                                <img src={editProductData.imageUrl} alt="Önizleme" className="w-full h-full object-cover" />
                                             </div>
                                         )}
                                     </div>
                                 </div>
                                 <div className="pt-6">
                                     <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs">
-                                        DeÄŸiÅŸiklikleri Kaydet
+                                        Değişiklikleri Kaydet
                                     </button>
                                 </div>
                             </form>
@@ -710,8 +710,8 @@ const Products = () => {
                                     <Settings2 size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display uppercase leading-tight">Kategorileri YÃ¶net</h3>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">ÃœrÃ¼n gruplandÄ±rma ayarlarÄ±</p>
+                                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display uppercase leading-tight">Kategorileri Yönet</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Ürün gruplandırma ayarları</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsCategoryDrawerOpen(false)} className="p-2 sm:p-3 bg-white rounded-2xl text-slate-400 hover:text-slate-600 shadow-sm transition-colors border border-slate-100">
@@ -721,10 +721,10 @@ const Products = () => {
                         <div className="flex-1 overflow-y-auto p-5 sm:p-10 scrollbar-hide">
                             <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-4 mb-10">
                                 <div className="flex-1">
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">YENÄ° KATEGORÄ°</label>
+                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">YENİ KATEGORİ</label>
                                     <input
                                         type="text" required
-                                        placeholder="Kategori adÄ±..."
+                                        placeholder="Kategori adı..."
                                         className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-[1.2rem] focus:outline-none focus:border-brand-primary focus:bg-white transition-all text-sm font-bold shadow-inner"
                                         value={newCategoryLabel}
                                         onChange={e => setNewCategoryLabel(e.target.value)}
@@ -736,10 +736,10 @@ const Products = () => {
                             </form>
 
                             <div className="space-y-4 pb-20">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-1">MEVCUT KATEGORÄ°LER</h4>
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-1">MEVCUT KATEGORİLER</h4>
                                 {storeCategories.length === 0 ? (
                                     <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 font-bold text-sm">
-                                        HenÃ¼z kategori eklenmemiÅŸ.
+                                        Henüz kategori eklenmemiş.
                                     </div>
                                 ) : (
                                     storeCategories.map(cat => (
