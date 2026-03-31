@@ -39,6 +39,14 @@ jobs:
       - name: Sync Capacitor Android project
         run: npm run android:sync
 
+      - name: Ensure AndroidX Gradle settings
+        run: |
+          mkdir -p android
+          touch android/gradle.properties
+          grep -q '^android.useAndroidX=' android/gradle.properties || echo 'android.useAndroidX=true' >> android/gradle.properties
+          grep -q '^android.enableJetifier=' android/gradle.properties || echo 'android.enableJetifier=true' >> android/gradle.properties
+          cat android/gradle.properties
+
       - name: Ensure Gradle wrapper is executable
         working-directory: android
         run: chmod +x ./gradlew
