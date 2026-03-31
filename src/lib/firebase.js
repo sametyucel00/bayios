@@ -10,6 +10,20 @@ import { getDatabase } from "firebase/database";
 import { getMessaging } from "firebase/messaging";
 import { Capacitor } from "@capacitor/core";
 
+const getRealtimeDatabaseUrl = () => {
+    const explicitUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL;
+    if (explicitUrl) {
+        return explicitUrl;
+    }
+
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+    if (!projectId) {
+        return undefined;
+    }
+
+    return `https://${projectId}-default-rtdb.firebaseio.com`;
+};
+
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -17,7 +31,7 @@ const firebaseConfig = {
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
+    databaseURL: getRealtimeDatabaseUrl()
 };
 
 const app = initializeApp(firebaseConfig);
