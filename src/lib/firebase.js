@@ -10,13 +10,23 @@ import { getDatabase } from "firebase/database";
 import { getMessaging } from "firebase/messaging";
 import { Capacitor } from "@capacitor/core";
 
+const firebaseDefaults = {
+    apiKey: "AIzaSyDVrufUynAnWdA7dBZ7PZjXYK6WcslU9r8",
+    authDomain: "nar-rehberi-pro.firebaseapp.com",
+    projectId: "nar-rehberi-pro",
+    storageBucket: "nar-rehberi-pro.firebasestorage.app",
+    messagingSenderId: "712568563076",
+    appId: "1:712568563076:web:627257531f8f6a76fe29d1",
+    databaseURL: "https://nar-rehberi-pro-default-rtdb.firebaseio.com/"
+};
+
 const getRealtimeDatabaseUrl = () => {
-    const explicitUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL;
+    const explicitUrl = import.meta.env.VITE_FIREBASE_DATABASE_URL || firebaseDefaults.databaseURL;
     if (explicitUrl) {
         return explicitUrl;
     }
 
-    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseDefaults.projectId;
     if (!projectId) {
         return undefined;
     }
@@ -25,12 +35,12 @@ const getRealtimeDatabaseUrl = () => {
 };
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseDefaults.apiKey,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseDefaults.authDomain,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseDefaults.projectId,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseDefaults.storageBucket,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseDefaults.messagingSenderId,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseDefaults.appId,
     databaseURL: getRealtimeDatabaseUrl()
 };
 
@@ -62,7 +72,7 @@ const createFirestore = () => {
 };
 
 export const db = createFirestore();
-export const rtdb = getDatabase(app);
+export const rtdb = getDatabase(app, firebaseConfig.databaseURL);
 export const messaging = (() => {
     if (typeof window === 'undefined' || Capacitor.isNativePlatform()) {
         return null;
