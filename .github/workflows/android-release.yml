@@ -60,6 +60,15 @@ jobs:
           keyPassword=${ANDROID_KEY_PASSWORD}
           EOF
 
+      - name: Validate keystore alias
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          keytool -list -v -keystore android/app/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" > android/keystore-info.txt
+          grep "Alias name:" android/keystore-info.txt || true
+          grep -q "Alias name: ${ANDROID_KEY_ALIAS}" android/keystore-info.txt
+
       - name: Ensure Gradle wrapper is executable
         working-directory: android
         run: chmod +x ./gradlew
