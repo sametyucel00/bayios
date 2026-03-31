@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings as SettingsIcon, Building2, Bell, Globe, Banknote, Shield, Save, User as UserIcon, Mail, Phone, MapPin, DatabaseBackup, RefreshCw, HelpCircle, Lock, Monitor, Hash, Cpu, Truck, Eye, EyeOff, Navigation } from 'lucide-react';
 import { updateUserInFirestore } from '../services/firestoreService';
 import useStore from '../store/useStore';
+import { safeGetItem, safeSetItem } from '../utils/safeStorage';
 
 
 const Settings = ({ user, onLogout }) => {
@@ -160,14 +161,14 @@ const Settings = ({ user, onLogout }) => {
     };
 
     const handleRestoreBackup = () => {
-        const backupData = localStorage.getItem('bayios-auto-backup');
+        const backupData = safeGetItem('bayios-auto-backup');
         if (!backupData) {
             useStore.getState().addNotification("Sistemde kayıtlı bir yedek bulunmuyor.", "error");
             return;
         }
 
         if (confirmActionId === 'restoreBackup') {
-            localStorage.setItem('bayios-storage', backupData);
+            safeSetItem('bayios-storage', backupData);
             useStore.getState().addNotification("Yedek başarıyla geri yüklendi. Sayfa yenileniyor...", "success");
             setConfirmActionId(null);
             setTimeout(() => window.location.reload(), 1500);

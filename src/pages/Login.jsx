@@ -4,6 +4,7 @@ import { getUserByCredentials, registerUserToFirestore, checkActivationCode, val
 import { HelpCircle } from 'lucide-react';
 import { rtdb } from '../lib/firebase';
 import { ref, set } from 'firebase/database';
+import { safeGetItem, safeRemoveItem, safeSetItem } from '../utils/safeStorage';
 
 
 const generateRandomPassword = () => {
@@ -40,7 +41,7 @@ const getRememberMeDefault = () => {
     }
 
     try {
-        return window.localStorage.getItem('bayios-auto-login') === 'true';
+        return safeGetItem('bayios-auto-login') === 'true';
     } catch (error) {
         console.warn('Auto-login preference could not be read from localStorage.', error);
         return false;
@@ -229,9 +230,9 @@ const Login = ({ onLogin }) => {
 
                 setSuccessMsg('Kayıt başarılı! Sisteme giriş yapılıyor...');
                 if (rememberMe) {
-                    localStorage.setItem('bayios-auto-login', 'true');
+                    safeSetItem('bayios-auto-login', 'true');
                 } else {
-                    localStorage.removeItem('bayios-auto-login');
+                    safeRemoveItem('bayios-auto-login');
                 }
                 setTimeout(() => {
                     onLogin(registeredAccount);
@@ -310,9 +311,9 @@ const Login = ({ onLogin }) => {
 
                 setSuccessMsg('Kayıt başarılı! Sisteme giriş yapılıyor...');
                 if (rememberMe) {
-                    localStorage.setItem('bayios-auto-login', 'true');
+                    safeSetItem('bayios-auto-login', 'true');
                 } else {
-                    localStorage.removeItem('bayios-auto-login');
+                    safeRemoveItem('bayios-auto-login');
                 }
                 setTimeout(() => {
                     onLogin({ id: createdUser.id, ...newUser });
@@ -325,9 +326,9 @@ const Login = ({ onLogin }) => {
                         password === DEFAULT_DEVELOPER_CREDENTIALS.password
                     ) {
                         if (rememberMe) {
-                            localStorage.setItem('bayios-auto-login', 'true');
+                            safeSetItem('bayios-auto-login', 'true');
                         } else {
-                            localStorage.removeItem('bayios-auto-login');
+                            safeRemoveItem('bayios-auto-login');
                         }
 
                         onLogin(DEFAULT_DEVELOPER_CREDENTIALS.user);
@@ -363,9 +364,9 @@ const Login = ({ onLogin }) => {
                         return;
                     }
                     if (rememberMe) {
-                        localStorage.setItem('bayios-auto-login', 'true');
+                        safeSetItem('bayios-auto-login', 'true');
                     } else {
-                        localStorage.removeItem('bayios-auto-login');
+                        safeRemoveItem('bayios-auto-login');
                     }
 
                     // Ensure Caller ID path exists and is refreshed on login

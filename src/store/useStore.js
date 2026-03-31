@@ -31,6 +31,7 @@ import {
     addIncomingCallToFirestore, deleteIncomingCallFromFirestore, clearIncomingCallsFromFirestore,
     sendDeviceCommand
 } from '../services/firestoreService';
+import { safeGetItem } from '../utils/safeStorage';
 
 const createSafeStorage = () => {
     if (typeof window === 'undefined') {
@@ -489,7 +490,7 @@ const useStore = create(
                     }
 
                     // 1. WhatsApp Hook
-                    if (localStorage.getItem('bayios-pref-sms') === 'true') {
+                    if (safeGetItem('bayios-pref-sms') === 'true') {
                         if (order.phone) {
                             let whatsappMsg = '';
                             if (status === 'Yolda' || status === 'Kurye Yolda') {

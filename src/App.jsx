@@ -28,6 +28,7 @@ import { rtdb } from './lib/firebase';
 import { ref, onValue, update } from "firebase/database";
 import { updateLocationInFirestore } from './services/firestoreService';
 import { installTurkishTextFixer } from './utils/turkishTextFixer';
+import { safeGetItem, safeRemoveItem, safeSetItem } from './utils/safeStorage';
 
 const isDebugLoggingEnabled = import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true';
 
@@ -182,16 +183,16 @@ function App() {
 
   useEffect(() => {
     // Auto Backup logic
-    const autoBackupEnabled = localStorage.getItem('bayios-auto-backup-enabled');
+    const autoBackupEnabled = safeGetItem('bayios-auto-backup-enabled');
     if (autoBackupEnabled !== 'false') { // enabled by default or set to true
       const todayString = new Date().toISOString().split('T')[0];
-      const lastBackupDate = localStorage.getItem('bayios-last-backup-date');
+      const lastBackupDate = safeGetItem('bayios-last-backup-date');
 
       if (lastBackupDate !== todayString) {
-        const data = localStorage.getItem('bayios-storage');
+        const data = safeGetItem('bayios-storage');
         if (data) {
-          localStorage.setItem('bayios-auto-backup', data);
-          localStorage.setItem('bayios-last-backup-date', todayString);
+          safeSetItem('bayios-auto-backup', data);
+          safeSetItem('bayios-last-backup-date', todayString);
           if (isDebugLoggingEnabled) {
             console.log("Auto backup created for:", todayString);
           }
@@ -253,7 +254,7 @@ function App() {
     useStore.getState().cleanupListeners();
     useStore.getState().setUser(null);
     useStore.getState().clearData();
-    localStorage.removeItem('bayios-auto-login'); // Disable auto-login on manual logout
+    safeRemoveItem('bayios-auto-login'); // Disable auto-login on manual logout
     setCurrentView('dashboard');
   };
 
