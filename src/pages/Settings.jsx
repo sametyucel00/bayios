@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Building2, Bell, Globe, Banknote, Shield, Save, User as UserIcon, Mail, Phone, MapPin, DatabaseBackup, RefreshCw, HelpCircle, Lock, Monitor, Hash, Cpu, Truck, Eye, EyeOff, Navigation } from 'lucide-react';
-import { updateUserInFirestore } from '../services/firestoreService';
+import { Settings as SettingsIcon, Building2, Bell, Globe, Banknote, Shield, Save, User as UserIcon, Mail, Phone, MapPin, DatabaseBackup, RefreshCw, HelpCircle, Lock, Monitor, Hash, Cpu, Truck, Eye, EyeOff, Navigation, Trash2, AlertTriangle } from 'lucide-react';
+import { deleteAccountFromFirestore, updateUserInFirestore } from '../services/firestoreService';
 import useStore from '../store/useStore';
 import { safeGetItem, safeSetItem } from '../utils/safeStorage';
+import { isDemoUser } from '../utils/demoData';
 
 
 const Settings = ({ user, onLogout }) => {
@@ -21,6 +22,7 @@ const Settings = ({ user, onLogout }) => {
 
     const [saveStatus, setSaveStatus] = useState(null); // 'success', 'error', null
     const [confirmFreeze, setConfirmFreeze] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const [confirmActionId, setConfirmActionId] = useState(null); // 'wpLogout', 'restoreBackup', 'logoutAll'
 
     // Auth & Security States
@@ -273,6 +275,34 @@ const Settings = ({ user, onLogout }) => {
             setConfirmActionId('logoutAll');
             useStore.getState().addNotification("Tüm cihazlardan çıkış yapmak için tekrar tıklayın.", "warning");
             setTimeout(() => setConfirmActionId(null), 3000);
+        }
+    };
+
+    const handleDeleteAccount = () => {
+        setConfirmDelete(true);
+    };
+
+    const executeDeleteAccount = async () => {
+        setIsSaving(true);
+        try {
+            await deleteAccountFromFirestore(user);
+            useStore.getState().cleanupListeners();
+            useStore.getState().clearData();
+            useStore.getState().setUser(null);
+            useStore.getState().addNotification(
+                isDemoUser(user)
+                    ? "Demo hesap silindi. Oturum kapatılıyor..."
+                    : "Hesabınız kalıcı olarak silindi. Oturum kapatılıyor...",
+                "success"
+            );
+            setConfirmDelete(false);
+            setTimeout(() => { if (onLogout) onLogout(); }, 1200);
+        } catch (error) {
+            console.error(error);
+            useStore.getState().addNotification(error.message || "Hesap silinirken bir hata oluştu.", "error");
+            setConfirmDelete(false);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -778,6 +808,50 @@ const Settings = ({ user, onLogout }) => {
                                     </p>
                                 </div>
                                 <div className="pt-8 border-t border-red-50">
+                                    <div className="rounded-3xl border border-rose-100 bg-rose-50/60 p-5 mb-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="mt-0.5 rounded-2xl bg-white p-3 text-rose-500 shadow-sm">
+                                                <AlertTriangle size={20} />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-black text-slate-900">Hesap Silme</p>
+                                                <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-rose-600">
+                                                    Bu işlem kalıcıdır ve geri alınamaz.
+                                                </p>
+                                                <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                                                    {isDemoUser(user)
+                                                        ? 'Demo hesapta silme akışı bu oturumdaki örnek verileri temizler ve oturumu kapatır.'
+                                                        : 'Hesabınız uygulama içinden kalıcı olarak silinir. Geçici dondurma veya pasife alma değildir.'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {confirmDelete ? (
+                                            <div className="mt-4 flex flex-col md:flex-row gap-3 animate-in slide-in-from-bottom-2">
+                                                <button
+                                                    onClick={executeDeleteAccount}
+                                                    disabled={isSaving}
+                                                    className="flex-1 bg-rose-600 text-white font-black text-[10px] uppercase tracking-widest py-4 rounded-2xl hover:bg-rose-700 transition-all shadow-lg disabled:opacity-70"
+                                                >
+                                                    {isSaving ? 'SİLİNİYOR...' : 'EVET, HESABI SİL'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDelete(false)}
+                                                    disabled={isSaving}
+                                                    className="flex-1 bg-white text-slate-600 font-black text-[10px] uppercase tracking-widest py-4 rounded-2xl hover:bg-slate-50 transition-all border border-slate-200"
+                                                >
+                                                    İPTAL
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={handleDeleteAccount}
+                                                className="mt-4 inline-flex items-center justify-center gap-2 bg-white text-rose-600 font-black text-[10px] uppercase tracking-widest py-4 px-6 rounded-2xl hover:bg-rose-100 transition-all border border-rose-200"
+                                            >
+                                                <Trash2 size={16} /> Hesabı Sil
+                                            </button>
+                                        )}
+                                    </div>
                                     <h3 className="text-lg font-black text-red-600 mb-6 uppercase tracking-widest text-xs">Kritik İşlemler</h3>
                                     <div className="flex flex-col md:flex-row gap-4">
                                         <button

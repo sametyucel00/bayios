@@ -372,6 +372,84 @@ export const updateUserInFirestore = async (userId, data) => {
     }
 };
 
+export const deleteAccountFromFirestore = async (user) => {
+    if (!user?.id) {
+        throw new Error("Silinecek kullanıcı bulunamadı.");
+    }
+
+    if (isDemoUser(user)) {
+        return { success: true, demo: true };
+    }
+
+    const batch = writeBatch(db);
+    const userRole = String(user.role || '').toLowerCase();
+    const userId = user.id;
+    const businessId = userRole === 'admin' ? userId : user.businessId;
+
+    batch.delete(doc(db, "users", userId));
+
+    if (userRole === 'customer') {
+        const subscriberQuery = buildSafeQuery(
+            collection(db, "subscribers"),
+            safeWhere("linkedUserId", "==", userId)
+        );
+        const subscriberSnapshot = await getDocs(subscriberQuery);
+        subscriberSnapshot.forEach((subscriberDoc) => {
+            batch.set(subscriberDoc.ref, {
+                linkedUserId: "",
+                customerUserId: "",
+            }, { merge: true });
+        });
+    }
+
+    if (userRole === 'courier') {
+        const courierQuery = buildSafeQuery(
+            collection(db, "couriers"),
+            safeWhere("userId", "==", userId)
+        );
+        const courierSnapshot = await getDocs(courierQuery);
+        courierSnapshot.forEach((courierDoc) => {
+            batch.delete(courierDoc.ref);
+        });
+    }
+
+    if (userRole === 'admin' && businessId) {
+        const collectionsToDelete = [
+            "subscribers",
+            "products",
+            "orders",
+            "couriers",
+            "suppliers",
+            "expenses",
+            "categories",
+            "reconciliations",
+            "incoming_calls",
+            "device_commands",
+        ];
+
+        for (const collectionName of collectionsToDelete) {
+            const snapshot = await getDocs(
+                buildSafeQuery(collection(db, collectionName), safeWhere("businessId", "==", businessId))
+            );
+            snapshot.forEach((entryDoc) => {
+                batch.delete(entryDoc.ref);
+            });
+        }
+
+        const linkedUsersSnapshot = await getDocs(
+            buildSafeQuery(collection(db, "users"), safeWhere("businessId", "==", businessId))
+        );
+        linkedUsersSnapshot.forEach((linkedUserDoc) => {
+            if (linkedUserDoc.id !== userId) {
+                batch.delete(linkedUserDoc.ref);
+            }
+        });
+    }
+
+    await batch.commit();
+    return { success: true };
+};
+
 export const updateLocationInFirestore = async (userId, lat, lng) => {
     try {
         if (!userId) {
