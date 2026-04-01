@@ -5,37 +5,85 @@ import SubscriptionGuard from './components/SubscriptionGuard';
 import Login from './pages/Login';
 import IncomingCallDrawer from './components/IncomingCallDrawer';
 import NotificationToast from './components/NotificationToast';
+import Layout from './layouts/Layout';
 
 import { rtdb } from './lib/firebase';
 import { ref, onValue, update } from "firebase/database";
 import { installTurkishTextFixer } from './utils/turkishTextFixer';
 import { safeGetItem, safeRemoveItem, safeSetItem } from './utils/safeStorage';
+import { isDemoUser } from './utils/demoData';
 
-const Layout = lazy(() => import('./layouts/Layout'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Products = lazy(() => import('./pages/Products'));
-const Accounting = lazy(() => import('./pages/Accounting'));
-const Couriers = lazy(() => import('./pages/Couriers'));
-const Reconciliation = lazy(() => import('./pages/Reconciliation'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const CustomerPortal = lazy(() => import('./pages/CustomerPortal'));
-const Suppliers = lazy(() => import('./pages/Suppliers'));
-const Subscribers = lazy(() => import('./pages/Subscribers'));
-const Finance = lazy(() => import('./pages/Finance'));
-const Calls = lazy(() => import('./pages/Calls'));
-const Orders = lazy(() => import('./pages/Orders'));
-const DailyClosingForm = lazy(() => import('./components/DailyClosingForm'));
-const CourierPortal = lazy(() => import('./pages/CourierPortal'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Expenses = lazy(() => import('./pages/Expenses'));
-const DeveloperPanel = lazy(() => import('./pages/DeveloperPanel'));
-const Dealers = lazy(() => import('./pages/Dealers'));
+const lazyWithPreload = (factory) => {
+  let loadedModule;
+
+  const load = () => {
+    if (!loadedModule) {
+      loadedModule = factory();
+    }
+    return loadedModule;
+  };
+
+  const Component = lazy(load);
+  Component.preload = load;
+  return Component;
+};
+
+const Dashboard = lazyWithPreload(() => import('./pages/Dashboard'));
+const Products = lazyWithPreload(() => import('./pages/Products'));
+const Accounting = lazyWithPreload(() => import('./pages/Accounting'));
+const Couriers = lazyWithPreload(() => import('./pages/Couriers'));
+const Reconciliation = lazyWithPreload(() => import('./pages/Reconciliation'));
+const Analytics = lazyWithPreload(() => import('./pages/Analytics'));
+const CustomerPortal = lazyWithPreload(() => import('./pages/CustomerPortal'));
+const Suppliers = lazyWithPreload(() => import('./pages/Suppliers'));
+const Subscribers = lazyWithPreload(() => import('./pages/Subscribers'));
+const Finance = lazyWithPreload(() => import('./pages/Finance'));
+const Calls = lazyWithPreload(() => import('./pages/Calls'));
+const Orders = lazyWithPreload(() => import('./pages/Orders'));
+const DailyClosingForm = lazyWithPreload(() => import('./components/DailyClosingForm'));
+const CourierPortal = lazyWithPreload(() => import('./pages/CourierPortal'));
+const Settings = lazyWithPreload(() => import('./pages/Settings'));
+const Expenses = lazyWithPreload(() => import('./pages/Expenses'));
+const DeveloperPanel = lazyWithPreload(() => import('./pages/DeveloperPanel'));
+const Dealers = lazyWithPreload(() => import('./pages/Dealers'));
 const shouldAutoInitNativeServices = false;
 
 const isDebugLoggingEnabled = import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true';
 
 function ScreenFallback() {
-  return null;
+  return (
+    <div className="min-h-screen bg-slate-100/50 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="h-7 w-40 rounded-2xl bg-slate-200/80 animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="h-28 rounded-[2rem] bg-white shadow-sm border border-slate-200 animate-pulse" />
+          <div className="h-28 rounded-[2rem] bg-white shadow-sm border border-slate-200 animate-pulse" />
+          <div className="h-28 rounded-[2rem] bg-white shadow-sm border border-slate-200 animate-pulse" />
+        </div>
+        <div className="h-[50vh] rounded-[2rem] bg-white shadow-sm border border-slate-200 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
+function ContentFallback() {
+  return (
+    <div className="p-4 md:p-8 bg-slate-50 min-h-screen w-full overflow-hidden">
+      <div className="space-y-6 md:space-y-8">
+        <div className="flex flex-col gap-3">
+          <div className="h-3 w-24 rounded-full bg-slate-200 animate-pulse" />
+          <div className="h-9 w-56 rounded-2xl bg-slate-200 animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="h-28 rounded-[2rem] bg-white border border-slate-200 shadow-sm animate-pulse" />
+          <div className="h-28 rounded-[2rem] bg-white border border-slate-200 shadow-sm animate-pulse" />
+          <div className="h-28 rounded-[2rem] bg-white border border-slate-200 shadow-sm animate-pulse" />
+          <div className="h-28 rounded-[2rem] bg-white border border-slate-200 shadow-sm animate-pulse" />
+        </div>
+        <div className="h-[55vh] rounded-[2rem] bg-white border border-slate-200 shadow-sm animate-pulse" />
+      </div>
+    </div>
+  );
 }
 
 function App() {
@@ -54,6 +102,71 @@ function App() {
   }, [storeUser?.id, storeUser?.role, initFirestoreSync]);
 
   useEffect(() => {
+    const userRole = storeUser?.role?.toLowerCase();
+    if (!userRole || typeof window === 'undefined') return undefined;
+
+    const preloadByRole = {
+      developer: [DeveloperPanel],
+      courier: [CourierPortal, Orders, Calls],
+      customer: [CustomerPortal, Settings],
+      admin: [
+        Dashboard,
+        Orders,
+        Products,
+        Subscribers,
+        Dealers,
+        Finance,
+        Accounting,
+        Calls,
+        Expenses,
+        Suppliers,
+        Couriers,
+        Reconciliation,
+        Analytics,
+        Settings,
+        DailyClosingForm,
+      ],
+    };
+
+    const preloadTargets = preloadByRole[userRole] || [];
+    const runPreload = () => {
+      preloadTargets.forEach((Component) => {
+        Component.preload?.().catch?.(() => {});
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(() => runPreload(), { timeout: 1200 });
+      return () => window.cancelIdleCallback?.(idleId);
+    }
+
+    const timeoutId = window.setTimeout(runPreload, 180);
+    return () => window.clearTimeout(timeoutId);
+  }, [storeUser?.role]);
+
+  useEffect(() => {
+    const preloadByView = {
+      dashboard: [Orders, Products, Subscribers],
+      orders: [Subscribers, Products, Calls],
+      products: [Orders, Suppliers, Subscribers],
+      subscribers: [Orders, Dealers, Calls],
+      calls: [Orders, Subscribers],
+      finance: [Accounting, Expenses, Reconciliation],
+    };
+
+    const targets = preloadByView[currentView] || [];
+    if (targets.length === 0) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      targets.forEach((Component) => {
+        Component.preload?.().catch?.(() => {});
+      });
+    }, 80);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [currentView]);
+
+  useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       return () => {};
     }
@@ -62,6 +175,10 @@ function App() {
 
   useEffect(() => {
     if (storeUser?.id) {
+      if (isDemoUser(storeUser)) {
+        return;
+      }
+
       if (Capacitor.isNativePlatform() && !shouldAutoInitNativeServices) {
         console.warn('Native notification auto-init is disabled for stability.');
         return;
@@ -83,6 +200,10 @@ function App() {
 
   useEffect(() => {
     if (!storeUser) return;
+
+    if (isDemoUser(storeUser)) {
+      return;
+    }
 
     const userRole = storeUser.role?.toLowerCase();
     const isStaff = userRole === 'admin' || userRole === 'courier';
@@ -220,6 +341,10 @@ function App() {
 
   useEffect(() => {
     if (!storeUser) return;
+
+    if (isDemoUser(storeUser)) {
+      return;
+    }
 
     let watchId;
     let isCancelled = false;
@@ -381,26 +506,26 @@ function App() {
   }
 
   return (
-    <Suspense fallback={<ScreenFallback />}>
-      <SubscriptionGuard>
-        <Layout
-          currentView={currentView}
-          setCurrentView={setCurrentView}
-          onLogout={handleLogout}
-          user={storeUser}
-        >
+    <SubscriptionGuard>
+      <Layout
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        onLogout={handleLogout}
+        user={storeUser}
+      >
+        <Suspense fallback={<ContentFallback />}>
           {renderContent()}
-        </Layout>
-        <IncomingCallDrawer
-          isOpen={!!activeCall}
-          phone={activeCall?.number}
-          deviceId={activeCall?.deviceId}
-          isManual={activeCall?.manual}
-          onClose={closeActiveCallEverywhere}
-        />
-        <NotificationToast />
-      </SubscriptionGuard>
-    </Suspense>
+        </Suspense>
+      </Layout>
+      <IncomingCallDrawer
+        isOpen={!!activeCall}
+        phone={activeCall?.number}
+        deviceId={activeCall?.deviceId}
+        isManual={activeCall?.manual}
+        onClose={closeActiveCallEverywhere}
+      />
+      <NotificationToast />
+    </SubscriptionGuard>
   );
 }
 

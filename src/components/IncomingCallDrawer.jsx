@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Phone, PhoneOff, User, MapPin, Plus, ShoppingCart, UserPlus, X, CheckCircle2, Building2 } from 'lucide-react';
 import useStore from '../store/useStore';
 import { calculateOrderTotals, createOrderItemDraft, hydrateOrderItemWithProduct } from '../utils/orderPricing';
+import { normalizePhone } from '../services/firestoreService';
 
 const isDebugLoggingEnabled = import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true';
 
@@ -13,6 +14,16 @@ const getNextSubscriberNumber = (subscribers = []) => {
         .filter((value) => Number.isFinite(value));
 
     return String((numbers.length > 0 ? Math.max(...numbers) : 0) + 1);
+};
+
+const findExistingSubscriberByPhone = (subscribers = [], rawPhone = '') => {
+    const normalizedTargetPhone = normalizePhone(rawPhone);
+    if (!normalizedTargetPhone) return null;
+
+    return subscribers.find((item) => {
+        const normalizedSubscriberPhone = item?.normalizedPhone || normalizePhone(item?.phone);
+        return normalizedSubscriberPhone && normalizedSubscriberPhone === normalizedTargetPhone;
+    }) || null;
 };
 
 const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, isManual }) => {
@@ -37,8 +48,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
         }
 
         setPhone(incomingPhone || '');
-        const incomingStr = String(incomingPhone || '').replace(/\s/g, '');
-        const found = subscribers.find((s) => s.phone && String(s.phone).replace(/\s/g, '') === incomingStr);
+        const found = findExistingSubscriberByPhone(subscribers, incomingPhone);
 
         setSubscriber(found || null);
         setNewSubName('');
@@ -50,7 +60,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
 
         if (found) {
             const subOrders = orders
-                .filter((o) => o.customerId === found.id)
+                .filter((o) => String(o.customerId || '') === String(found.id || ''))
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
             if (subOrders.length > 0) {
@@ -104,6 +114,14 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
     const handleAddSubscriber = async (e) => {
         e.preventDefault();
         if (!newSubName.trim()) return;
+
+        const existingSubscriber = findExistingSubscriberByPhone(subscribers, phone);
+        if (existingSubscriber) {
+            setSubscriber(existingSubscriber);
+            setCallState('quick-order');
+            addNotification('Bu numara zaten kayıtlı. Mevcut abone açıldı.', 'info');
+            return;
+        }
 
         const nextSubscriberNumber = getNextSubscriberNumber(subscribers);
 

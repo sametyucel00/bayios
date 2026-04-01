@@ -32,6 +32,14 @@ import {
     sendDeviceCommand
 } from '../services/firestoreService';
 import { safeGetItem } from '../utils/safeStorage';
+import {
+    applyNestedUpdates,
+    createDemoDoc,
+    createDemoState,
+    getNextDemoLegacyId,
+    isDemoUser,
+    matchesDemoDocId,
+} from '../utils/demoData';
 
 const createSafeStorage = () => {
     if (typeof window === 'undefined') {
@@ -53,6 +61,16 @@ const toNumber = (value) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const updateCollectionItem = (items = [], targetId, updates) => (
+    items.map((item) => (
+        matchesDemoDocId(item, targetId) ? applyNestedUpdates(item, updates) : item
+    ))
+);
+
+const removeCollectionItem = (items = [], targetId) => (
+    items.filter((item) => !matchesDemoDocId(item, targetId))
+);
 
 const useStore = create(
     persist(
@@ -80,7 +98,29 @@ const useStore = create(
             syncError: null,
             unsubscribers: [],
 
-            setUser: (user) => set({ currentUser: user }),
+            setUser: (user) => {
+                if (isDemoUser(user)) {
+                    const demoState = createDemoState(user);
+                    set({
+                        ...demoState,
+                        currentUser: {
+                            ...demoState.currentUser,
+                            ...(user || {}),
+                            demoMode: true,
+                        },
+                    });
+                    return;
+                }
+
+                set({ currentUser: user });
+            },
+            loadDemoData: (user) => {
+                const demoState = createDemoState(user);
+                set({
+                    ...demoState,
+                    currentUser: demoState.currentUser,
+                });
+            },
             cleanupListeners: () => {
                 const currentUnsubs = get().unsubscribers;
                 if (currentUnsubs && currentUnsubs.length > 0) {
@@ -117,6 +157,20 @@ const useStore = create(
                 const businessId = get().getBusinessId();
                 if (!businessId) return;
 
+                if (isDemoUser(get().currentUser)) {
+                    const createdCall = createDemoDoc('call', {
+                        ...callData,
+                        businessId,
+                        status: 'Cevapsız',
+                        timestamp: new Date().toISOString(),
+                    });
+
+                    set((state) => ({
+                        incomingCalls: [createdCall, ...state.incomingCalls],
+                    }));
+                    return createdCall;
+                }
+
                 await addIncomingCallToFirestore({
                     ...callData,
                     businessId,
@@ -125,10 +179,22 @@ const useStore = create(
                 });
             },
             deleteIncomingCall: async (id) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        incomingCalls: removeCollectionItem(state.incomingCalls, id),
+                    }));
+                    return;
+                }
+
                 await deleteIncomingCallFromFirestore(id);
             },
 
             sendDeviceCommand: async (deviceId, command, payload) => {
+                if (isDemoUser(get().currentUser)) {
+                    get().addNotification(`Demo modunda cihaz komutu işlendi: ${command}`, 'info');
+                    return { id: createDemoDoc('command').id, deviceId, command, payload };
+                }
+
                 await sendDeviceCommand(deviceId, command, payload);
                 
                 // Also trigger MacroDroid Webhook if we can find the device's webhook ID
@@ -146,6 +212,11 @@ const useStore = create(
 
             clearIncomingCalls: async () => {
                 const businessId = get().getBusinessId();
+                if (isDemoUser(get().currentUser)) {
+                    set({ incomingCalls: [] });
+                    return;
+                }
+
                 if (businessId) {
                     await clearIncomingCallsFromFirestore(businessId);
                 }
@@ -158,6 +229,11 @@ const useStore = create(
             initFirestoreSync: () => {
                 const user = get().currentUser;
                 if (!user) return;
+
+                if (isDemoUser(user)) {
+                    get().loadDemoData(user);
+                    return;
+                }
 
                 try {
                     // Clean up any existing listeners correctly
@@ -278,6 +354,10 @@ const useStore = create(
             },
 
             selectBusinessForCustomer: (businessId) => {
+                if (isDemoUser(get().currentUser)) {
+                    return;
+                }
+
                 if (!businessId) {
                     set({ products: [] });
                     return;
@@ -289,52 +369,185 @@ const useStore = create(
             setSubscribers: (subscribers) => set({ subscribers }),
 
             addSubscriber: async (subscriber) => {
+                if (isDemoUser(get().currentUser)) {
+                    const createdSubscriber = createDemoDoc('subscriber', {
+                        status: 'Active',
+                        timestamp: new Date().toISOString(),
+                        businessId: subscriber.businessId || get().getBusinessId(),
+                        legacyId: subscriber.legacyId || getNextDemoLegacyId(get().subscribers),
+                        ...subscriber,
+                    });
+
+                    set((state) => ({
+                        subscribers: [createdSubscriber, ...state.subscribers],
+                    }));
+
+                    return { id: createdSubscriber.id };
+                }
+
                 return await addSubscriberToFirestore({ ...subscriber, businessId: get().getBusinessId() });
             },
 
             updateSubscriber: async (subscriberId, data) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        subscribers: updateCollectionItem(state.subscribers, subscriberId, data),
+                    }));
+                    return;
+                }
+
                 await updateSubscriberInFirestore(subscriberId, data);
             },
 
             deleteSubscriber: async (subscriberId) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        subscribers: removeCollectionItem(state.subscribers, subscriberId),
+                    }));
+                    return;
+                }
+
                 await deleteSubscriberFromFirestore(subscriberId);
             },
 
             bulkUpdateSubscribers: async (subscriberIds, data) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        subscribers: state.subscribers.map((subscriber) => (
+                            subscriberIds.some((targetId) => matchesDemoDocId(subscriber, targetId))
+                                ? applyNestedUpdates(subscriber, data)
+                                : subscriber
+                        )),
+                    }));
+                    return;
+                }
+
                 await bulkUpdateSubscribersInFirestore(subscriberIds, data);
             },
 
             bulkDeleteSubscribers: async (subscriberIds) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        subscribers: state.subscribers.filter((subscriber) => (
+                            !subscriberIds.some((targetId) => matchesDemoDocId(subscriber, targetId))
+                        )),
+                    }));
+                    return;
+                }
+
                 await bulkDeleteSubscribersFromFirestore(subscriberIds);
             },
 
             addProduct: async (product) => {
+                if (isDemoUser(get().currentUser)) {
+                    const createdProduct = createDemoDoc('product', {
+                        timestamp: new Date().toISOString(),
+                        businessId: product.businessId || get().getBusinessId(),
+                        stock: 0,
+                        emptyStock: 0,
+                        depositFee: 0,
+                        price: 0,
+                        ...product,
+                    });
+
+                    set((state) => ({
+                        products: [createdProduct, ...state.products],
+                    }));
+
+                    return createdProduct.id;
+                }
+
                 const docRef = await addProductToFirestore({ ...product, businessId: get().getBusinessId() });
                 return docRef.id;
             },
 
             updateProduct: async (productId, data) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        products: updateCollectionItem(state.products, productId, data),
+                    }));
+                    return;
+                }
+
                 await updateProductInFirestore(productId, data);
             },
 
             deleteProduct: async (productId) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        products: removeCollectionItem(state.products, productId),
+                    }));
+                    return;
+                }
+
                 await deleteProductFromFirestore(productId);
             },
 
             addSupplier: async (supplier) => {
+                if (isDemoUser(get().currentUser)) {
+                    const createdSupplier = createDemoDoc('supplier', {
+                        timestamp: new Date().toISOString(),
+                        businessId: supplier.businessId || get().getBusinessId(),
+                        status: 'Active',
+                        ...supplier,
+                    });
+
+                    set((state) => ({
+                        suppliers: [createdSupplier, ...state.suppliers],
+                    }));
+                    return { id: createdSupplier.id };
+                }
+
                 await addSupplierToFirestore({ ...supplier, businessId: get().getBusinessId() });
             },
 
             updateSupplier: async (supplierId, data) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        suppliers: updateCollectionItem(state.suppliers, supplierId, data),
+                    }));
+                    return;
+                }
+
                 await updateSupplierInFirestore(supplierId, data);
             },
 
             addCourier: async (courier) => {
+                if (isDemoUser(get().currentUser)) {
+                    const createdCourier = createDemoDoc('courier', {
+                        timestamp: new Date().toISOString(),
+                        businessId: courier.businessId || get().getBusinessId(),
+                        status: 'Active',
+                        ...courier,
+                    });
+
+                    set((state) => ({
+                        couriers: [createdCourier, ...state.couriers],
+                    }));
+                    return { id: createdCourier.id };
+                }
+
                 await addCourierToFirestore({ ...courier, businessId: get().getBusinessId() });
             },
 
             addCourierAccount: async (courierData) => {
                 const businessId = get().getBusinessId();
+                if (isDemoUser(get().currentUser)) {
+                    const createdCourier = createDemoDoc('courier', {
+                        timestamp: new Date().toISOString(),
+                        businessId,
+                        role: 'courier',
+                        status: 'Active',
+                        userId: courierData.userId || `demo-user-${Date.now()}`,
+                        ...courierData,
+                    });
+
+                    set((state) => ({
+                        couriers: [createdCourier, ...state.couriers],
+                    }));
+                    return { id: createdCourier.id };
+                }
+
                 const userRef = await registerUserToFirestore({
                     ...courierData,
                     businessId,
@@ -345,18 +558,52 @@ const useStore = create(
             },
 
             updateCourier: async (courierId, data) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        couriers: updateCollectionItem(state.couriers, courierId, data),
+                    }));
+                    return;
+                }
+
                 await updateCourierInFirestore(courierId, data);
             },
 
             deleteCourier: async (courierId) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        couriers: removeCollectionItem(state.couriers, courierId),
+                    }));
+                    return;
+                }
+
                 await deleteCourierFromFirestore(courierId);
             },
 
             addCategory: async (category) => {
+                if (isDemoUser(get().currentUser)) {
+                    const createdCategory = createDemoDoc('category', {
+                        timestamp: new Date().toISOString(),
+                        businessId: category.businessId || get().getBusinessId(),
+                        ...category,
+                    });
+
+                    set((state) => ({
+                        categories: [...state.categories, createdCategory],
+                    }));
+                    return { id: createdCategory.id };
+                }
+
                 await addCategoryToFirestore({ ...category, businessId: get().getBusinessId() });
             },
 
             deleteCategory: async (categoryId) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        categories: removeCollectionItem(state.categories, categoryId),
+                    }));
+                    return;
+                }
+
                 await deleteCategoryFromFirestore(categoryId);
             },
 
@@ -374,7 +621,7 @@ const useStore = create(
                     updates.emptyStock = (product.emptyStock || 0) - quantity;
                 }
 
-                await updateProductInFirestore(productId, updates);
+                await get().updateProduct(productId, updates);
             },
 
             applyCompletedOrderStock: async (order) => {
@@ -410,7 +657,7 @@ const useStore = create(
                         updates.emptyStock = toNumber(product.emptyStock) + quantity;
                     }
 
-                    await updateProductInFirestore(product.id, updates);
+                    await get().updateProduct(product.id, updates);
                 }
             },
 
@@ -429,6 +676,20 @@ const useStore = create(
                 };
                 const businessId = order.businessId || (get().currentUser?.role === 'admin' ? get().currentUser?.id : get().currentUser?.businessId);
                 newOrder.businessId = businessId;
+
+                if (isDemoUser(get().currentUser)) {
+                    const createdOrder = createDemoDoc('order', newOrder);
+                    set((state) => ({
+                        orders: [createdOrder, ...state.orders],
+                    }));
+
+                    if (newOrder.status === 'Tamamlandı' || newOrder.status === 'TamamlandÄ±') {
+                        await get().applyCompletedOrderStock(createdOrder);
+                    }
+
+                    get().addNotification('Demo siparişi oluşturuldu.', 'success');
+                    return { id: createdOrder.id };
+                }
 
                 const docRef = await addOrderToFirestore(newOrder);
 
@@ -454,10 +715,33 @@ const useStore = create(
             },
 
             updateOrder: async (orderId, data) => {
+                if (isDemoUser(get().currentUser)) {
+                    const currentOrder = get().orders.find((order) => matchesDemoDocId(order, orderId));
+                    if (!currentOrder) return;
+
+                    const updatedOrder = applyNestedUpdates(currentOrder, data);
+                    set((state) => ({
+                        orders: updateCollectionItem(state.orders, orderId, data),
+                    }));
+
+                    if (updatedOrder.status === 'Tamamlandı' && currentOrder.status !== 'Tamamlandı') {
+                        await get().applyCompletedOrderStock(updatedOrder);
+                    }
+
+                    return;
+                }
+
                 await updateOrderInFirestore(orderId, data);
             },
 
             deleteOrder: async (orderId) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        orders: removeCollectionItem(state.orders, orderId),
+                    }));
+                    return;
+                }
+
                 await deleteOrderFromFirestore(orderId);
             },
 
@@ -467,6 +751,17 @@ const useStore = create(
                     if (!order) return;
 
                     const prevStatus = order.status;
+                    if (isDemoUser(get().currentUser)) {
+                        set((state) => ({
+                            orders: updateCollectionItem(state.orders, orderId, { status }),
+                        }));
+
+                        if (status === 'Tamamlandı' && prevStatus !== 'Tamamlandı') {
+                            await get().applyCompletedOrderStock({ ...order, status });
+                        }
+                        return;
+                    }
+
                     await updateOrderStatusInFirestore(orderId, status);
 
                     // 0. Stock Logic for Damacana/Tüp
@@ -546,20 +841,53 @@ const useStore = create(
 
             cancelOrder: async (orderId) => {
                 if (typeof orderId === 'string') {
+                    if (isDemoUser(get().currentUser)) {
+                        set((state) => ({
+                            orders: updateCollectionItem(state.orders, orderId, { status: 'İptal Edildi' }),
+                        }));
+                        return;
+                    }
+
                     await updateOrderStatusInFirestore(orderId, 'İptal Edildi');
                 }
             },
 
             // Actions: Accounting & Expenses
             addExpense: async (expense) => {
+                if (isDemoUser(get().currentUser)) {
+                    const createdExpense = createDemoDoc('expense', {
+                        timestamp: new Date().toISOString(),
+                        businessId: expense.businessId || get().getBusinessId(),
+                        ...expense,
+                    });
+                    set((state) => ({
+                        expenses: [createdExpense, ...state.expenses],
+                    }));
+                    return { id: createdExpense.id };
+                }
+
                 await addExpenseToFirestore({ ...expense, businessId: get().getBusinessId() });
             },
 
             updateExpense: async (expenseId, data) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        expenses: updateCollectionItem(state.expenses, expenseId, data),
+                    }));
+                    return;
+                }
+
                 await updateExpenseInFirestore(expenseId, data);
             },
 
             deleteExpense: async (expenseId) => {
+                if (isDemoUser(get().currentUser)) {
+                    set((state) => ({
+                        expenses: removeCollectionItem(state.expenses, expenseId),
+                    }));
+                    return;
+                }
+
                 await deleteExpenseFromFirestore(expenseId);
             },
 
@@ -614,12 +942,30 @@ const useStore = create(
 
                 set({ currentUser: newUser });
 
+                if (isDemoUser(user)) {
+                    get().addNotification('Demo hesapta ayarlar bu oturum için güncellendi.', 'success');
+                    return;
+                }
+
                 // For Firestore, we send only the updates provided. 
                 // updateDoc handles dot notation (e.g. "settings.zoomLevel") correctly.
                 await updateUserInFirestore(user.id, updates);
             },
 
             addReconciliation: async (data) => {
+                if (isDemoUser(get().currentUser)) {
+                    const createdReconciliation = createDemoDoc('reconciliation', {
+                        timestamp: new Date().toISOString(),
+                        businessId: data.businessId || get().getBusinessId(),
+                        ...data,
+                    });
+
+                    set((state) => ({
+                        reconciliations: [createdReconciliation, ...state.reconciliations],
+                    }));
+                    return { id: createdReconciliation.id };
+                }
+
                 await addReconciliationToFirestore({ ...data, businessId: get().getBusinessId() });
             },
         }),

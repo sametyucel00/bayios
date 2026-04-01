@@ -44,6 +44,7 @@ const normalizeStatus = (value) => {
 const formatMoney = (value) => `\u20BA${Number(value || 0).toLocaleString('tr-TR')}`;
 
 const normalizeText = (value) => String(value ?? '').toLocaleLowerCase('tr-TR');
+const normalizeDigits = (value) => String(value ?? '').replace(/\D/g, '');
 
 const getInitial = (value) => {
     const normalized = String(value ?? '').trim();
@@ -122,13 +123,50 @@ const Orders = () => {
         return orderOrId.firestoreId || orderOrId.id || null;
     };
 
-    const filteredCustomers = useMemo(() => {
-        const query = normalizeText(customerSearch);
-        return subscribers.filter((subscriber) =>
-            normalizeText(subscriber?.name).includes(query) ||
-            String(subscriber?.phone || '').includes(customerSearch || '') ||
-            String(subscriber?.legacyId || '').includes(customerSearch || '')
+    const matchesSubscriberSearch = (subscriber, rawQuery) => {
+        const query = String(rawQuery ?? '').trim();
+        if (!query) return true;
+
+        const normalizedQuery = normalizeText(query);
+        const digitQuery = normalizeDigits(query);
+        const subscriberPhone = String(subscriber?.phone || '');
+        const subscriberLegacyId = String(subscriber?.legacyId || '');
+        const subscriberId = String(subscriber?.id || '');
+
+        return (
+            normalizeText(subscriber?.name).includes(normalizedQuery) ||
+            subscriberPhone.includes(query) ||
+            subscriberLegacyId.includes(query) ||
+            subscriberId.includes(query) ||
+            (digitQuery && normalizeDigits(subscriberPhone).includes(digitQuery)) ||
+            (digitQuery && normalizeDigits(subscriberLegacyId).includes(digitQuery))
         );
+    };
+
+    const findSubscriberBySelection = (customerId) => subscribers.find((subscriber) => (
+        String(subscriber?.id || '') === String(customerId || '') ||
+        String(subscriber?.firestoreId || '') === String(customerId || '')
+    ));
+
+    const resolveSubscriberFromSearch = (rawQuery) => {
+        const query = String(rawQuery ?? '').trim();
+        if (!query) return null;
+
+        const normalizedQuery = normalizeText(query);
+        const digitQuery = normalizeDigits(query);
+
+        return (
+            subscribers.find((subscriber) => normalizeText(subscriber?.name) === normalizedQuery) ||
+            subscribers.find((subscriber) => digitQuery && normalizeDigits(subscriber?.phone).endsWith(digitQuery)) ||
+            subscribers.find((subscriber) => String(subscriber?.legacyId || '') === query) ||
+            subscribers.find((subscriber) => String(subscriber?.id || '') === query) ||
+            subscribers.find((subscriber) => matchesSubscriberSearch(subscriber, query)) ||
+            null
+        );
+    };
+
+    const filteredCustomers = useMemo(() => {
+        return subscribers.filter((subscriber) => matchesSubscriberSearch(subscriber, customerSearch));
     }, [customerSearch, subscribers]);
 
     const filteredOrders = useMemo(() => {
@@ -155,7 +193,7 @@ const Orders = () => {
 
     const handleCreateOrder = async (event) => {
         event.preventDefault();
-        const selectedCustomer = subscribers.find((subscriber) => subscriber.id === newOrder.customerId);
+        const selectedCustomer = findSubscriberBySelection(newOrder.customerId) || resolveSubscriberFromSearch(customerSearch);
 
         if (!selectedCustomer || newOrder.items.length === 0 || newOrder.items.some((item) => !item.productId)) {
             useStore.getState().addNotification('L\u00fctfen m\u00fc\u015fteri ve en az bir \u00fcr\u00fcn se\u00e7iniz.', 'error');
@@ -429,7 +467,7 @@ const Orders = () => {
                                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Müşteri Seçimi</label>
                                 <div className="relative">
                                     <input type="text" placeholder="İsim, telefon veya eski no ile ara..." className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-black text-slate-800 shadow-inner" value={customerSearch} onChange={(event) => { setCustomerSearch(event.target.value); setIsCustomerDropdownOpen(true); setNewOrder((previous) => ({ ...previous, customerId: '' })); }} onFocus={() => setIsCustomerDropdownOpen(true)} onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)} />
-                                    {isCustomerDropdownOpen && <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto border border-slate-100 p-2">{filteredCustomers.length > 0 ? filteredCustomers.map((subscriber) => <div key={subscriber.id} className="p-4 hover:bg-slate-50 cursor-pointer rounded-xl transition-colors" onMouseDown={() => { setNewOrder((previous) => ({ ...previous, customerId: subscriber.id })); setCustomerSearch(`${subscriber.name} - ${subscriber.phone || ''}`); setIsCustomerDropdownOpen(false); }}><div className="font-bold text-slate-800">{subscriber.name}</div><div className="text-xs text-slate-500 font-medium">{subscriber.phone} | {subscriber.address}</div></div>) : <div className="p-4 text-center text-slate-500 text-sm font-medium">Müşteri bulunamadı</div>}</div>}
+                                    {isCustomerDropdownOpen && <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto border border-slate-100 p-2">{filteredCustomers.length > 0 ? filteredCustomers.map((subscriber) => <div key={subscriber.firestoreId || subscriber.id} className="p-4 hover:bg-slate-50 cursor-pointer rounded-xl transition-colors" onMouseDown={() => { setNewOrder((previous) => ({ ...previous, customerId: subscriber.id })); setCustomerSearch(`${subscriber.name} - ${subscriber.phone || ''}`); setIsCustomerDropdownOpen(false); }}><div className="flex items-center justify-between gap-3"><div className="font-bold text-slate-800 truncate">{subscriber.name}</div>{subscriber.legacyId && <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-600 border border-amber-100">Eski No: {subscriber.legacyId}</span>}</div><div className="text-xs text-slate-500 font-medium">{subscriber.phone} | {subscriber.address}</div></div>) : <div className="p-4 text-center text-slate-500 text-sm font-medium">Müşteri bulunamadı</div>}</div>}
                                 </div>
                             </div>
                             <div className="space-y-4">

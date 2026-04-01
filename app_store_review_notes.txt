@@ -1,0 +1,27 @@
+App Review Demo Access
+
+The app now includes a visible “App Review Demo” section on the login screen.
+Reviewers can access the app without regional or IP restrictions by using either:
+
+1. One-tap review buttons on the login screen:
+- Isletme Demo
+- Kurye Demo
+- Musteri Demo
+
+2. Manual demo credentials:
+- Admin / Isletme: isletme / isletme
+- Courier / Kurye: kurye / kurye
+- Customer / Musteri: musteri / musteri
+
+All three demo accounts open with local sample data and do not require backend, regional access, or IP-based access.
+This allows App Review to verify the main app flows, including:
+- dashboard
+- orders
+- subscribers
+- products
+- couriers
+- finance
+- customer ordering
+- courier delivery flow
+
+If needed, please start with “Isletme Demo” to review the full business/admin functionality.

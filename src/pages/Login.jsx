@@ -5,6 +5,7 @@ import { HelpCircle } from 'lucide-react';
 import { rtdb } from '../lib/firebase';
 import { ref, set } from 'firebase/database';
 import { safeGetItem, safeRemoveItem, safeSetItem } from '../utils/safeStorage';
+import { getDemoUser } from '../utils/demoData';
 
 
 const generateRandomPassword = () => {
@@ -127,6 +128,22 @@ const Login = ({ onLogin }) => {
     const [securityAnswerInput, setSecurityAnswerInput] = useState('');
     const [newGeneratedPassword, setNewGeneratedPassword] = useState('');
 
+    const handleDemoReviewAccess = (role) => {
+        const demoUser = getDemoUser(role);
+        setError('');
+        setSuccessMsg('App Review Demo açılıyor...');
+        setActiveRole(role);
+
+        if (rememberMe) {
+            safeSetItem('bayios-auto-login', 'true');
+        } else {
+            safeRemoveItem('bayios-auto-login');
+        }
+
+        setTimeout(() => {
+            onLogin(demoUser);
+        }, 200);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -340,13 +357,13 @@ const Login = ({ onLogin }) => {
 
                 // Hardcoded defaults fallback
                 if (activeRole === 'admin' && username === 'isletme' && password === 'isletme') {
-                    onLogin({ id: 'demo-admin-id', name: 'Yönetici', role: 'admin' });
+                    onLogin(getDemoUser('admin'));
                     return;
                 } else if (activeRole === 'courier' && username === 'kurye' && password === 'kurye') {
-                    onLogin({ id: 'demo-courier-id', name: 'Mehmet Kurye', role: 'courier', businessId: 'demo-admin-id' });
+                    onLogin(getDemoUser('courier'));
                     return;
                 } else if (activeRole === 'customer' && username === 'musteri' && password === 'musteri') {
-                    onLogin({ id: 'demo-customer-id', name: 'Ahmet Yılmaz', role: 'customer', address: "Çınar Mah. 12. Cad. No:5 D:8" });
+                    onLogin(getDemoUser('customer'));
                     return;
                 }
 
@@ -501,6 +518,48 @@ const Login = ({ onLogin }) => {
                                     <span className="text-[8px] font-black uppercase tracking-wide sm:tracking-widest leading-tight px-1">{role.label}</span>
                                 </button>
                             ))}
+                        </div>
+                    )}
+
+                    {!isForgotPassword && !isRegistering && activeRole !== 'developer' && (
+                        <div className="mb-6 rounded-[1.75rem] border border-blue-100 bg-blue-50/80 p-4 sm:p-5">
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm">
+                                    <ShieldCheck size={18} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">App Review Demo</p>
+                                    <p className="mt-1 text-xs font-bold leading-relaxed text-slate-600">
+                                        Reviewers can access sample data without regional or IP restrictions.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                <button
+                                    type="button"
+                                    onClick={() => handleDemoReviewAccess('admin')}
+                                    className="rounded-2xl bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-slate-800 active:scale-[0.98]"
+                                >
+                                    İşletme Demo
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDemoReviewAccess('courier')}
+                                    className="rounded-2xl bg-blue-600 px-4 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
+                                >
+                                    Kurye Demo
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDemoReviewAccess('customer')}
+                                    className="rounded-2xl bg-orange-600 px-4 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-orange-700 active:scale-[0.98]"
+                                >
+                                    Müşteri Demo
+                                </button>
+                            </div>
+                            <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Admin: `isletme / isletme`  Courier: `kurye / kurye`  Customer: `musteri / musteri`
+                            </p>
                         </div>
                     )}
 

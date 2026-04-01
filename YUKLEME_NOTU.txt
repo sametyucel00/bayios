@@ -1,0 +1,21 @@
+Bu klasor GitHub'a mobil build icin yuklenecek guncel dosyalari icerir.
+
+Repo kokune yapistir:
+- .github/workflows
+- android
+- ios
+- src
+- public
+- package.json
+- package-lock.json
+- capacitor.config.json
+- vite.config.js
+- tailwind.config.js
+- postcss.config.js
+- index.html
+
+Notlar:
+- Gercek .env dosyasi bilerek eklenmedi.
+- Gerekirse sadece .env.example'i baz al.
+- Android ve iOS workflow dosyalari bu klasorde gunceldir.
+- App Review demo degisiklikleri src icine dahildir.

@@ -1,4 +1,5 @@
 import { db } from "../lib/firebase";
+import { isDemoUser } from "../utils/demoData";
 import {
     collection,
     addDoc,
@@ -375,6 +376,9 @@ export const updateLocationInFirestore = async (userId, lat, lng) => {
     try {
         if (!userId) {
             console.warn("updateLocationInFirestore: userId is missing, skipping location update");
+            return;
+        }
+        if (isDemoUser({ id: userId })) {
             return;
         }
         const userRef = doc(db, "users", userId);
