@@ -28,6 +28,12 @@
 	<string>Kurye konumunu teslimat sirasinda guncel gostermek ve rota yonlendirmesi saglamak icin konumunuza erisim gerekir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Siparis takibi, yakin isletmeleri gormek ve rota gostermek icin konumunuza erisim gerekir.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Musteri ve profil fotograflari cekebilmeniz icin kameraya erisim gerekir.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Musteri ve profil fotograflarini galeriden secebilmeniz icin fotograf kutuphanesine erisim gerekir.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Cekilen veya secilen fotograflari cihazinizda kullanabilmeniz icin fotograf kutuphanesine erisim gerekir.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
