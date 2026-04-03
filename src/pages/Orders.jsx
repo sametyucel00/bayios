@@ -430,15 +430,15 @@ const Orders = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-6 mb-10 print:hidden">
                 {summaryItems.map((item) => (
-                    <div key={item.label} className="premium-card p-6 min-w-0 overflow-hidden">
-                        <div className="flex items-start gap-4">
-                            <div className={`w-14 h-14 shrink-0 ${item.bg} rounded-2xl flex items-center justify-center ${item.color} shadow-sm`}>
-                                <item.icon size={28} />
+                    <div key={item.label} className="premium-card min-w-0 overflow-hidden p-6 min-h-[190px]">
+                        <div className="flex h-full flex-col items-center justify-start gap-4 text-center">
+                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.bg} ${item.color} shadow-sm`}>
+                                <item.icon size={18} />
                             </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{item.label}</p>
-                                <p className="text-2xl font-black text-slate-900 font-display leading-tight break-words">{item.value}</p>
-                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-wider mt-2 truncate">{item.trend}</p>
+                            <div className="w-full space-y-2">
+                                <p className="break-words text-[10px] font-black uppercase leading-snug tracking-[0.18em] text-slate-400">{item.label}</p>
+                                <p className="break-words text-[1.75rem] font-black leading-tight text-slate-900 font-display">{item.value}</p>
+                                <p className="break-words text-[11px] font-black leading-snug text-slate-500">{item.trend}</p>
                             </div>
                         </div>
                     </div>
