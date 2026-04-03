@@ -183,12 +183,45 @@ const Orders = () => {
     const paginatedOrders = filteredOrders.slice(0, visibleCount);
     const getStatusCount = (status) => normalizedOrders.filter((order) => order.status === status).length;
     const activeMenuOrder = paginatedOrders.find((order) => getOrderDocId(order) === activeMenu) || null;
+    const now = new Date();
+    const todayMetrics = normalizedOrders.reduce((metrics, order) => {
+        const orderDate = new Date(order.timestamp || order.date || 0);
+        if (Number.isNaN(orderDate.getTime())) return metrics;
+
+        const isToday = orderDate.getFullYear() === now.getFullYear()
+            && orderDate.getMonth() === now.getMonth()
+            && orderDate.getDate() === now.getDate();
+
+        if (isToday) {
+            metrics.count += 1;
+            metrics.amount += Number(order.amount || 0);
+        }
+
+        return metrics;
+    }, { count: 0, amount: 0 });
+
+    const monthMetrics = normalizedOrders.reduce((metrics, order) => {
+        const orderDate = new Date(order.timestamp || order.date || 0);
+        if (Number.isNaN(orderDate.getTime())) return metrics;
+
+        const isThisMonth = orderDate.getFullYear() === now.getFullYear()
+            && orderDate.getMonth() === now.getMonth();
+
+        if (isThisMonth) {
+            metrics.count += 1;
+            metrics.amount += Number(order.amount || 0);
+        }
+
+        return metrics;
+    }, { count: 0, amount: 0 });
 
     const summaryItems = [
         { label: 'Toplam', value: normalizedOrders.length, icon: ShoppingCart, color: 'text-slate-600', bg: 'bg-slate-100', trend: 'Canl\u0131' },
         { label: 'Hazırlanan', value: getStatusCount('Hazırlanıyor'), icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', trend: '\u00d6nemli' },
         { label: 'Yolda', value: getStatusCount('Yolda'), icon: Truck, color: 'text-blue-500', bg: 'bg-blue-50', trend: 'Teslimat' },
         { label: 'Bitmiş', value: getStatusCount('Tamamlandı'), icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50', trend: 'Ba\u015far\u0131l\u0131' },
+        { label: 'Bugün TL', value: formatMoney(todayMetrics.amount), icon: Calendar, color: 'text-violet-500', bg: 'bg-violet-50', trend: `${todayMetrics.count} sipariş` },
+        { label: 'Bu Ay TL', value: formatMoney(monthMetrics.amount), icon: CreditCard, color: 'text-fuchsia-500', bg: 'bg-fuchsia-50', trend: `${monthMetrics.count} sipariş` },
     ];
 
     const handleCreateOrder = async (event) => {
@@ -395,7 +428,7 @@ const Orders = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10 print:hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-8 mb-10 print:hidden">
                 {summaryItems.map((item) => <div key={item.label} className="premium-card p-6 flex items-center gap-5"><div className={`w-14 h-14 ${item.bg} rounded-2xl flex items-center justify-center ${item.color} shadow-sm`}><item.icon size={28} /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p><p className="text-2xl font-black text-slate-900 font-display">{item.value}</p></div><div className="ml-auto"><span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter vertical-text">{item.trend}</span></div></div>)}
             </div>
 
