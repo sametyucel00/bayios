@@ -189,12 +189,7 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [currentView]);
 
-  useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      return () => {};
-    }
-    return installTurkishTextFixer(document.body);
-  }, []);
+  useEffect(() => installTurkishTextFixer(document.body), []);
 
   useEffect(() => {
     if (storeUser?.id) {

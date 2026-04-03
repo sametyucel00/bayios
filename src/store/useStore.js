@@ -57,6 +57,13 @@ const createSafeStorage = () => {
     }
 };
 
+const normalizeStatusText = (value) => String(value ?? '').trim().toLocaleLowerCase('tr-TR');
+const isCompletedStatus = (value) => normalizeStatusText(value).includes('tamam');
+const isReturnTrackingCategory = (value) => {
+    const label = String(value ?? '').trim().toLocaleLowerCase('tr-TR');
+    return label.includes('damacana') || label.includes('tüp') || label.includes('tã¼p') || label.includes('tÃ¼p');
+};
+
 const toNumber = (value) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -643,8 +650,7 @@ const useStore = create(
                     if (!product) continue;
 
                     const category = get().categories.find(c => c.id === product.type);
-                    const categoryLabel = (category?.label || '').toLowerCase();
-                    const isTrackingEmpty = categoryLabel.includes('damacana') || categoryLabel.includes('tÃ¼p') || categoryLabel.includes('tüp');
+                    const isTrackingEmpty = isReturnTrackingCategory(category?.label);
                     const quantity = toNumber(entry.quantity || 0);
 
                     if (quantity <= 0) continue;
@@ -683,7 +689,7 @@ const useStore = create(
                         orders: [createdOrder, ...state.orders],
                     }));
 
-                    if (newOrder.status === 'Tamamlandı' || newOrder.status === 'TamamlandÄ±') {
+                    if (isCompletedStatus(newOrder.status)) {
                         await get().applyCompletedOrderStock(createdOrder);
                     }
 
@@ -693,7 +699,7 @@ const useStore = create(
 
                 const docRef = await addOrderToFirestore(newOrder);
 
-                if (newOrder.status === 'Tamamlandı' || newOrder.status === 'TamamlandÄ±') {
+                if (isCompletedStatus(newOrder.status)) {
                     await get().applyCompletedOrderStock(newOrder);
                 }
 

@@ -2,6 +2,12 @@
 import { Plus, Search, Filter, Calculator, Truck, Banknote, RefreshCw, XCircle, Package, Image as ImageIcon, Edit2, Upload, Settings2, Trash2 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import ProductExcelImportDrawer from '../components/ProductExcelImportDrawer';
+
+const normalizeCategoryLabel = (value) => String(value ?? '').toLocaleLowerCase('tr-TR');
+const isReturnTrackingCategory = (value) => {
+    const label = normalizeCategoryLabel(value);
+    return label.includes('damacana') || label.includes('tüp') || label.includes('tÃ¼p');
+};
 import useStore from '../store/useStore';
 
 
@@ -260,7 +266,7 @@ const Products = () => {
                 {storeCategories.map(cat => {
                     const catProducts = products.filter(p => p.type === cat.id);
                     const totalStock = catProducts.reduce((acc, p) => acc + (p.stock || 0), 0);
-                    const isTracking = cat.label.toLowerCase().includes('damacana') || cat.label.toLowerCase().includes('tÃ¼p');
+                    const isTracking = isReturnTrackingCategory(cat.label);
                     const totalEmpty = isTracking ? catProducts.reduce((acc, p) => acc + (p.emptyStock || 0), 0) : 0;
 
                     return (

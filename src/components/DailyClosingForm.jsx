@@ -1,11 +1,11 @@
 import React, { useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, RefreshCw } from 'lucide-react';
 import useStore from '../store/useStore';
 
 const DailyClosingForm = ({ user }) => {
-    const { orders, expenses } = useStore();
+    const { orders, expenses, addNotification } = useStore();
     const reportRef = useRef(null);
 
     const handlePrint = () => {
@@ -62,7 +62,7 @@ const DailyClosingForm = ({ user }) => {
             pdf.save(`Gun_Sonu_Raporu_${new Date().toISOString().split('T')[0]}.pdf`);
         } catch (error) {
             console.error("PDF generation failed:", error);
-            alert(`PDF oluşturulurken bir hata oluştu: ${error.message || 'Bilinmeyen hata'}`);
+            addNotification(`PDF oluşturulurken bir hata oluştu: ${error.message || 'Bilinmeyen hata'}`, 'error');
         } finally {
             setIsGenerating(false);
         }

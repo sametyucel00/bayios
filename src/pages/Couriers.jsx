@@ -4,6 +4,23 @@ import useStore from '../store/useStore';
 import { ShieldCheck, Copy, Info, RefreshCw } from 'lucide-react';
 import GoogleMapTracker from '../components/GoogleMapTracker';
 
+const normalizeCourierStatus = (value) => {
+    const text = String(value ?? '').trim().toLocaleLowerCase('tr-TR');
+    if (text.includes('yolda')) return 'Yolda';
+    if (text.includes('müsait') || text.includes('mã¼sait')) return 'Müsait';
+    if (text.includes('meşgul') || text.includes('meåÿgul') || text.includes('meåşgul')) return 'Meşgul';
+    return String(value ?? '');
+};
+
+const normalizeOrderStatus = (value) => {
+    const text = String(value ?? '').trim().toLocaleLowerCase('tr-TR');
+    if (text.includes('hazır') || text.includes('hazã')) return 'Hazırlanıyor';
+    if (text.includes('bekle')) return 'Beklemede';
+    if (text.includes('yolda')) return 'Yolda';
+    if (text.includes('tamam')) return 'Tamamlandı';
+    return String(value ?? '');
+};
+
 const CourierCard = ({ courier, onAnalyze, onEdit, onDelete, onMapClick }) => (
     <div className="premium-card p-7 group transition-all duration-500 hover:scale-[1.02]">
         <div className="flex justify-between items-start mb-6">
@@ -14,10 +31,10 @@ const CourierCard = ({ courier, onAnalyze, onEdit, onDelete, onMapClick }) => (
                 <div>
                     <h3 className="font-black text-slate-900 text-xl tracking-tight group-hover:text-brand-primary transition-colors">{courier.name}</h3>
                     <div className="flex items-center gap-2 text-xs font-bold mt-1.5">
-                        <div className={`w-2 h-2 rounded-full ${courier.status === 'Yolda' ? 'bg-brand-accent' :
-                            courier.status === 'MÃ¼sait' ? 'bg-emerald-500' : 'bg-slate-300'
+                        <div className={`w-2 h-2 rounded-full ${normalizeCourierStatus(courier.status) === 'Yolda' ? 'bg-brand-accent' :
+                            normalizeCourierStatus(courier.status) === 'Müsait' ? 'bg-emerald-500' : 'bg-slate-300'
                             }`}></div>
-                        <span className="text-slate-500 uppercase tracking-widest">{courier.status}</span>
+                        <span className="text-slate-500 uppercase tracking-widest">{normalizeCourierStatus(courier.status)}</span>
                     </div>
                 </div>
             </div>
@@ -101,12 +118,12 @@ const Couriers = () => {
         showNotification("Kurye kodu baÅŸarÄ±yla yenilendi!", "success");
     };
 
-    const activeCouriersCount = couriers.filter(c => c.status === 'Yolda' || c.status === 'MÃ¼sait').length;
-    const activeDeliveriesCount = orders.filter(o => o.status === 'Yolda' || o.status === 'HazÄ±rlanÄ±yor' || o.status === 'Beklemede').length;
+    const activeCouriersCount = couriers.filter(c => ['Yolda', 'Müsait'].includes(normalizeCourierStatus(c.status))).length;
+    const activeDeliveriesCount = orders.filter(o => ['Yolda', 'Hazırlanıyor', 'Beklemede'].includes(normalizeOrderStatus(o.status))).length;
 
     const today = new Date().toISOString().split('T')[0];
     const completedTodayCount = orders.filter(o =>
-        o.status === 'TamamlandÄ±' && o.date && o.date.startsWith(today)
+        normalizeOrderStatus(o.status) === 'Tamamlandı' && o.date && o.date.startsWith(today)
     ).length;
 
     const statsItems = [
@@ -203,15 +220,15 @@ const Couriers = () => {
                 const courier = currentCouriers[randomIndex];
 
                 // Randomly change status
-                const statuses = ['MÃ¼sait', 'Yolda', 'MÃ¼sait', 'MeÅŸgul'];
+                const statuses = ['Müsait', 'Yolda', 'Müsait', 'Meşgul'];
                 const status = statuses[Math.floor(Math.random() * statuses.length)];
 
                 // Randomly increment cash if "Yolda" (simulating a delivery)
                 const cashIncrease = status === 'Yolda' ? Math.floor(Math.random() * 50) + 20 : 0;
 
                 // Randomly update stock
-                const waterStock = Math.max(0, (courier.currentStock?.water || 0) + (status === 'MÃ¼sait' ? 5 : -1));
-                const tubeStock = Math.max(0, (courier.currentStock?.tube || 0) + (status === 'MÃ¼sait' ? 2 : 0));
+                const waterStock = Math.max(0, (courier.currentStock?.water || 0) + (status === 'Müsait' ? 5 : -1));
+                const tubeStock = Math.max(0, (courier.currentStock?.tube || 0) + (status === 'Müsait' ? 2 : 0));
 
                 useStore.getState().updateCourier(courier.id, {
                     status,
@@ -348,12 +365,12 @@ const Couriers = () => {
                                 <div className="bg-slate-50 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 border-slate-100/50 shadow-sm">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Teslimat PerformansÄ±</p>
                                     <p className="text-2xl sm:text-3xl font-black text-brand-primary font-display">
-                                        {orders.filter(o => o.courierId === analysisCourier.id && o.status === 'TamamlandÄ±').length} BaÅŸarÄ±lÄ±
+                                        {orders.filter(o => o.courierId === analysisCourier.id && normalizeOrderStatus(o.status) === 'Tamamlandı').length} BaÅŸarÄ±lÄ±
                                     </p>
                                     <div className="mt-4 h-2 w-full bg-slate-200 rounded-full overflow-hidden">
                                         <div 
                                             className="h-full bg-brand-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all duration-1000"
-                                            style={{ width: `${Math.min(100, (orders.filter(o => o.courierId === analysisCourier.id && o.status === 'TamamlandÄ±').length / Math.max(1, orders.filter(o => o.courierId === analysisCourier.id).length)) * 100)}%` }}
+                                            style={{ width: `${Math.min(100, (orders.filter(o => o.courierId === analysisCourier.id && normalizeOrderStatus(o.status) === 'Tamamlandı').length / Math.max(1, orders.filter(o => o.courierId === analysisCourier.id).length)) * 100)}%` }}
                                         ></div>
                                     </div>
                                 </div>
@@ -414,9 +431,9 @@ const Couriers = () => {
                                 <div className="space-y-6 pl-2 pb-10">
                                     {orders.filter(o => o.courierId === analysisCourier.id).sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date)).slice(0, 5).map((order) => (
                                         <div key={order.id} className="relative pl-8 border-l-2 border-slate-100 pb-2">
-                                            <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white shadow-sm ${order.status === 'TamamlandÄ±' ? 'bg-emerald-500' : 'bg-brand-accent'}`}></div>
+                                            <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white shadow-sm ${normalizeOrderStatus(order.status) === 'Tamamlandı' ? 'bg-emerald-500' : 'bg-brand-accent'}`}></div>
                                             <p className="text-sm sm:text-base font-black text-slate-800 tracking-tight">
-                                                SipariÅŸ {order.status === 'TamamlandÄ±' ? 'Teslim Edildi' : 'Aktif / Yolda'}
+                                                SipariÅŸ {normalizeOrderStatus(order.status) === 'Tamamlandı' ? 'Teslim Edildi' : 'Aktif / Yolda'}
                                             </p>
                                             <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
                                                 {new Date(order.timestamp || order.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} ? {order.customer} ? {order.paymentMethod || 'Nakit'}
