@@ -142,12 +142,14 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
 
     const [newSubName, setNewSubName] = useState('');
     const [newSubAddress, setNewSubAddress] = useState('');
+    const [newSubNotes, setNewSubNotes] = useState('');
     const [newSubIsCorporate, setNewSubIsCorporate] = useState(false);
 
     const [orderItems, setOrderItems] = useState([createEmptyOrderItem()]);
     const [orderCustomerName, setOrderCustomerName] = useState('');
     const [orderPhone, setOrderPhone] = useState(incomingPhone || '');
     const [orderAddress, setOrderAddress] = useState('');
+    const [orderSubscriberNotes, setOrderSubscriberNotes] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('Nakit');
 
     useEffect(() => {
@@ -169,10 +171,12 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
         setLastOrder(subscriberOrders[0] || null);
         setNewSubName('');
         setNewSubAddress('');
+        setNewSubNotes('');
         setNewSubIsCorporate(false);
         setOrderCustomerName(found?.name || '');
         setOrderPhone(found?.phone || incomingPhone || '');
         setOrderAddress(found?.address || '');
+        setOrderSubscriberNotes(found?.notes || '');
         setPaymentMethod(subscriberOrders[0]?.paymentMethod || 'Nakit');
         setOrderItems(found ? buildAutoOrderItems(products, found, subscriberOrders[0] || null) : [createEmptyOrderItem()]);
 
@@ -221,6 +225,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
             setOrderCustomerName(existingSubscriber.name || '');
             setOrderPhone(existingSubscriber.phone || phone || '');
             setOrderAddress(existingSubscriber.address || '');
+            setOrderSubscriberNotes(existingSubscriber.notes || '');
             setCallState('quick-order');
             addNotification('Bu numara zaten kayıtlı. Mevcut abone açıldı.', 'info');
             return;
@@ -231,6 +236,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
             name: newSubName,
             phone,
             address: newSubAddress,
+            notes: newSubNotes,
             location: '',
             bottles: 0,
             registrationDate: new Date().toISOString(),
@@ -245,6 +251,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
             setOrderCustomerName(createdSubscriber.name);
             setOrderPhone(createdSubscriber.phone);
             setOrderAddress(createdSubscriber.address);
+            setOrderSubscriberNotes(createdSubscriber.notes || '');
             setCallState('quick-order');
         } catch (error) {
             console.error('Failed to add subscriber:', error);
@@ -353,6 +360,12 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                                     <span className="px-3 py-1 bg-amber-500/20 text-amber-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-500/20">
                                         Eski No: {subscriber.legacyId}
                                     </span>
+                                )}
+                                {orderSubscriberNotes && (
+                                    <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-left">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Abone Notu</p>
+                                        <p className="mt-1 break-words text-xs font-bold leading-relaxed text-amber-900">{orderSubscriberNotes}</p>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -479,6 +492,16 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
                                         onChange={(e) => setNewSubAddress(e.target.value)}
                                     />
                                 </div>
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Abone Notu</label>
+                                <textarea
+                                    className="w-full px-4 py-4 bg-slate-50 border-2 border-transparent rounded-[1.2rem] outline-none focus:border-brand-primary focus:bg-white transition-all font-bold text-slate-800 resize-none h-24"
+                                    placeholder="Kapı şifresi, teslimat notu, özel uyarı..."
+                                    value={newSubNotes}
+                                    onChange={(e) => setNewSubNotes(e.target.value)}
+                                />
                             </div>
 
                             <div className="flex items-center gap-3 mt-2">
