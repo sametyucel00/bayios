@@ -428,8 +428,21 @@ const Orders = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-8 mb-10 print:hidden">
-                {summaryItems.map((item) => <div key={item.label} className="premium-card p-6 flex items-center gap-5"><div className={`w-14 h-14 ${item.bg} rounded-2xl flex items-center justify-center ${item.color} shadow-sm`}><item.icon size={28} /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p><p className="text-2xl font-black text-slate-900 font-display">{item.value}</p></div><div className="ml-auto"><span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter vertical-text">{item.trend}</span></div></div>)}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-6 mb-10 print:hidden">
+                {summaryItems.map((item) => (
+                    <div key={item.label} className="premium-card p-6 min-w-0 overflow-hidden">
+                        <div className="flex items-start gap-4">
+                            <div className={`w-14 h-14 shrink-0 ${item.bg} rounded-2xl flex items-center justify-center ${item.color} shadow-sm`}>
+                                <item.icon size={28} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{item.label}</p>
+                                <p className="text-2xl font-black text-slate-900 font-display leading-tight break-words">{item.value}</p>
+                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-wider mt-2 truncate">{item.trend}</p>
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             <div className="premium-card p-5 mb-8 flex flex-col md:flex-row justify-between items-center gap-5 bg-white/50 backdrop-blur-xl print:hidden">
