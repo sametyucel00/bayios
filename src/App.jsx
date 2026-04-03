@@ -94,6 +94,29 @@ function App() {
   const initFirestoreSync = useStore(state => state.initFirestoreSync);
 
   const [currentView, setCurrentView] = useState('dashboard');
+  const [rememberHydrated, setRememberHydrated] = useState(false);
+
+  useEffect(() => {
+    if (rememberHydrated) return;
+
+    const autoLoginEnabled = safeGetItem('bayios-auto-login') === 'true';
+    const rememberedUserRaw = safeGetItem('bayios-remembered-user');
+
+    if (!storeUser?.id && autoLoginEnabled && rememberedUserRaw) {
+      try {
+        const rememberedUser = JSON.parse(rememberedUserRaw);
+        if (rememberedUser?.id && rememberedUser?.role) {
+          useStore.getState().setUser(rememberedUser);
+        }
+      } catch (error) {
+        console.warn('Remembered session could not be restored.', error);
+        safeRemoveItem('bayios-remembered-user');
+        safeRemoveItem('bayios-auto-login');
+      }
+    }
+
+    setRememberHydrated(true);
+  }, [rememberHydrated, storeUser?.id]);
 
   useEffect(() => {
     if (storeUser?.id && storeUser?.role) {
@@ -393,6 +416,7 @@ function App() {
     useStore.getState().setUser(null);
     useStore.getState().clearData();
     safeRemoveItem('bayios-auto-login');
+    safeRemoveItem('bayios-remembered-user');
     setCurrentView('dashboard');
   };
 
@@ -484,6 +508,10 @@ function App() {
         );
     }
   };
+
+  if (!rememberHydrated && (!storeUser || !storeUser.id || !storeUser.role)) {
+    return <ScreenFallback />;
+  }
 
   if (!storeUser || !storeUser.id || !storeUser.role) {
     return <Login onLogin={handleLogin} />;

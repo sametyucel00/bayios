@@ -5,7 +5,28 @@ import { HelpCircle } from 'lucide-react';
 import { rtdb } from '../lib/firebase';
 import { ref, set } from 'firebase/database';
 import { safeGetItem, safeRemoveItem, safeSetItem } from '../utils/safeStorage';
-import { getDemoUser } from '../utils/demoData';
+import { getDemoUser, isDemoUserDeleted } from '../utils/demoData';
+
+const REVIEW_BUSINESS_DEMO_CREDENTIALS = {
+    username: 'isletme_review',
+    password: 'isletme_review',
+};
+
+const REVIEW_BUSINESS_DEMO_ALIASES = [
+    REVIEW_BUSINESS_DEMO_CREDENTIALS,
+    { username: 'isletmereview', password: 'isletmereview' },
+    { username: 'review_isletme', password: 'review_isletme' },
+];
+
+const clearRememberedSession = () => {
+    safeRemoveItem('bayios-auto-login');
+    safeRemoveItem('bayios-remembered-user');
+};
+
+const persistRememberedSession = (user) => {
+    safeSetItem('bayios-auto-login', 'true');
+    safeSetItem('bayios-remembered-user', JSON.stringify(user));
+};
 
 
 const generateRandomPassword = () => {
@@ -101,6 +122,8 @@ const postDeveloperLogin = async (username, password) => {
     throw new Error('Geliştirici giriş servisine ulaşılamadı. Backend bağlantısını kontrol edin.');
 };
 
+const normalizeCredentialValue = (value) => String(value || '').trim().toLowerCase();
+
 const Login = ({ onLogin }) => {
     const [isRegistering, setIsRegistering] = useState(false);
 
@@ -135,9 +158,9 @@ const Login = ({ onLogin }) => {
         setActiveRole(role);
 
         if (rememberMe) {
-            safeSetItem('bayios-auto-login', 'true');
+            persistRememberedSession(demoUser);
         } else {
-            safeRemoveItem('bayios-auto-login');
+            clearRememberedSession();
         }
 
         setTimeout(() => {
@@ -152,6 +175,13 @@ const Login = ({ onLogin }) => {
         setIsLoading(true);
 
         try {
+            const normalizedUsername = normalizeCredentialValue(username);
+            const normalizedPassword = normalizeCredentialValue(password);
+            const matchesReviewBusinessDemo = REVIEW_BUSINESS_DEMO_ALIASES.some((credentials) => (
+                normalizedUsername === normalizeCredentialValue(credentials.username) &&
+                normalizedPassword === normalizeCredentialValue(credentials.password)
+            ));
+
             if (isRegistering) {
                 if (activeRole === 'developer') {
                     throw new Error("Geliştirici hesapları bu ekrandan oluşturulamaz. Lütfen mevcut geliştirici hesabınızla giriş yapın.");
@@ -247,9 +277,9 @@ const Login = ({ onLogin }) => {
 
                 setSuccessMsg('Kayıt başarılı! Sisteme giriş yapılıyor...');
                 if (rememberMe) {
-                    safeSetItem('bayios-auto-login', 'true');
+                    persistRememberedSession(registeredAccount);
                 } else {
-                    safeRemoveItem('bayios-auto-login');
+                    clearRememberedSession();
                 }
                 setTimeout(() => {
                     onLogin(registeredAccount);
@@ -328,9 +358,9 @@ const Login = ({ onLogin }) => {
 
                 setSuccessMsg('Kayıt başarılı! Sisteme giriş yapılıyor...');
                 if (rememberMe) {
-                    safeSetItem('bayios-auto-login', 'true');
+                    persistRememberedSession({ id: createdUser.id, ...newUser });
                 } else {
-                    safeRemoveItem('bayios-auto-login');
+                    clearRememberedSession();
                 }
                 setTimeout(() => {
                     onLogin({ id: createdUser.id, ...newUser });
@@ -343,9 +373,9 @@ const Login = ({ onLogin }) => {
                         password === DEFAULT_DEVELOPER_CREDENTIALS.password
                     ) {
                         if (rememberMe) {
-                            safeSetItem('bayios-auto-login', 'true');
+                            persistRememberedSession(DEFAULT_DEVELOPER_CREDENTIALS.user);
                         } else {
-                            safeRemoveItem('bayios-auto-login');
+                            clearRememberedSession();
                         }
 
                         onLogin(DEFAULT_DEVELOPER_CREDENTIALS.user);
@@ -356,14 +386,53 @@ const Login = ({ onLogin }) => {
                 }
 
                 // Hardcoded defaults fallback
-                if (activeRole === 'admin' && username === 'isletme' && password === 'isletme') {
-                    onLogin(getDemoUser('admin'));
+                if (activeRole === 'admin' && normalizedUsername === 'isletme' && normalizedPassword === 'isletme') {
+                    const adminDemoUser = getDemoUser('admin');
+                    if (isDemoUserDeleted(adminDemoUser.id)) {
+                        throw new Error('Bu demo hesap silinmiş. Lütfen farklı bir hesap kullanın.');
+                    }
+                    if (rememberMe) {
+                        persistRememberedSession(adminDemoUser);
+                    } else {
+                        clearRememberedSession();
+                    }
+                    onLogin(adminDemoUser);
                     return;
-                } else if (activeRole === 'courier' && username === 'kurye' && password === 'kurye') {
-                    onLogin(getDemoUser('courier'));
+                } else if (activeRole === 'admin' && matchesReviewBusinessDemo) {
+                    const reviewDemoUser = getDemoUser('admin-review');
+                    if (isDemoUserDeleted(reviewDemoUser.id)) {
+                        throw new Error('Bu demo hesap silinmiş. Lütfen yeni bir demo hesap isteyin.');
+                    }
+                    if (rememberMe) {
+                        persistRememberedSession(reviewDemoUser);
+                    } else {
+                        clearRememberedSession();
+                    }
+                    onLogin(reviewDemoUser);
                     return;
-                } else if (activeRole === 'customer' && username === 'musteri' && password === 'musteri') {
-                    onLogin(getDemoUser('customer'));
+                } else if (activeRole === 'courier' && normalizedUsername === 'kurye' && normalizedPassword === 'kurye') {
+                    const courierDemoUser = getDemoUser('courier');
+                    if (isDemoUserDeleted(courierDemoUser.id)) {
+                        throw new Error('Bu demo hesap silinmiş. Lütfen farklı bir hesap kullanın.');
+                    }
+                    if (rememberMe) {
+                        persistRememberedSession(courierDemoUser);
+                    } else {
+                        clearRememberedSession();
+                    }
+                    onLogin(courierDemoUser);
+                    return;
+                } else if (activeRole === 'customer' && normalizedUsername === 'musteri' && normalizedPassword === 'musteri') {
+                    const customerDemoUser = getDemoUser('customer');
+                    if (isDemoUserDeleted(customerDemoUser.id)) {
+                        throw new Error('Bu demo hesap silinmiş. Lütfen farklı bir hesap kullanın.');
+                    }
+                    if (rememberMe) {
+                        persistRememberedSession(customerDemoUser);
+                    } else {
+                        clearRememberedSession();
+                    }
+                    onLogin(customerDemoUser);
                     return;
                 }
 
@@ -381,9 +450,9 @@ const Login = ({ onLogin }) => {
                         return;
                     }
                     if (rememberMe) {
-                        safeSetItem('bayios-auto-login', 'true');
+                        persistRememberedSession(user);
                     } else {
-                        safeRemoveItem('bayios-auto-login');
+                        clearRememberedSession();
                     }
 
                     // Ensure Caller ID path exists and is refreshed on login

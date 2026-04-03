@@ -54,6 +54,41 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
     const userOrders = orders.filter(o => o.customerId === user?.id || (user?.name && o.customer === user?.name)) || [];
     const activeOrders = userOrders.filter(o => o.status !== 'Teslim Edildi' && o.status !== 'İptal Edildi');
     const lastOrder = userOrders.length > 0 ? [...userOrders].reverse().find(o => o.status === 'Teslim Edildi') : null;
+    const now = new Date();
+    const todayOrderMetrics = userOrders.reduce((metrics, order) => {
+        if (order.status === 'İptal Edildi') return metrics;
+
+        const orderDate = new Date(order.timestamp || order.date || 0);
+        if (Number.isNaN(orderDate.getTime())) return metrics;
+
+        const isToday = orderDate.getFullYear() === now.getFullYear()
+            && orderDate.getMonth() === now.getMonth()
+            && orderDate.getDate() === now.getDate();
+
+        if (isToday) {
+            metrics.count += 1;
+            metrics.amount += Number(order.amount || 0);
+        }
+
+        return metrics;
+    }, { count: 0, amount: 0 });
+
+    const monthOrderMetrics = userOrders.reduce((metrics, order) => {
+        if (order.status === 'İptal Edildi') return metrics;
+
+        const orderDate = new Date(order.timestamp || order.date || 0);
+        if (Number.isNaN(orderDate.getTime())) return metrics;
+
+        const isThisMonth = orderDate.getFullYear() === now.getFullYear()
+            && orderDate.getMonth() === now.getMonth();
+
+        if (isThisMonth) {
+            metrics.count += 1;
+            metrics.amount += Number(order.amount || 0);
+        }
+
+        return metrics;
+    }, { count: 0, amount: 0 });
 
     // Loading state check - if we have no orders but we know we are a customer, wait a bit for sync
     const isInitialLoading = orders.length === 0 && user?.id;
@@ -529,6 +564,29 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
             ) : (
                 /* Orders Tracking View */
                 <div className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Bugün Sipariş</p>
+                            <p className="text-3xl font-black text-slate-900 mt-3">{todayOrderMetrics.count}</p>
+                            <p className="text-[11px] font-bold text-slate-500 mt-2">Günlük toplam adet</p>
+                        </div>
+                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">Bugün Tutar</p>
+                            <p className="text-3xl font-black text-emerald-600 mt-3">₺{todayOrderMetrics.amount.toFixed(2)}</p>
+                            <p className="text-[11px] font-bold text-slate-500 mt-2">Günlük toplam tutar</p>
+                        </div>
+                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Bu Ay Sipariş</p>
+                            <p className="text-3xl font-black text-slate-900 mt-3">{monthOrderMetrics.count}</p>
+                            <p className="text-[11px] font-bold text-slate-500 mt-2">Aylık toplam adet</p>
+                        </div>
+                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Bu Ay Tutar</p>
+                            <p className="text-3xl font-black text-blue-600 mt-3">₺{monthOrderMetrics.amount.toFixed(2)}</p>
+                            <p className="text-[11px] font-bold text-slate-500 mt-2">Aylık toplam tutar</p>
+                        </div>
+                    </div>
+
                     {activeOrders.length > 0 ? (
                         <div className="space-y-6">
                             {activeOrders.map((activeOrder, index) => (
