@@ -1,10 +1,14 @@
+import { safeGetItem, safeSetItem } from './safeStorage';
+
 const DEMO_IDS = {
     admin: 'demo-admin-id',
+    'admin-review': 'demo-admin-review-id',
     courier: 'demo-courier-id',
     customer: 'demo-customer-id',
 };
 
 const DEMO_BUSINESS_ID = DEMO_IDS.admin;
+const DELETED_DEMO_USERS_KEY = 'bayios-deleted-demo-users';
 
 const withDocIdentity = (id, data = {}) => ({
     id,
@@ -24,7 +28,49 @@ export const isDemoUser = (user) => Boolean(
     Object.values(DEMO_IDS).includes(user?.id)
 );
 
+const readDeletedDemoUsers = () => {
+    try {
+        const rawValue = safeGetItem(DELETED_DEMO_USERS_KEY);
+        const parsed = rawValue ? JSON.parse(rawValue) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn('Deleted demo users could not be read.', error);
+        return [];
+    }
+};
+
+export const isDemoUserDeleted = (userId) => readDeletedDemoUsers().includes(String(userId || ''));
+
+export const markDemoUserDeleted = (userId) => {
+    const normalizedId = String(userId || '').trim();
+    if (!normalizedId) return;
+
+    const currentDeletedUsers = readDeletedDemoUsers();
+    if (currentDeletedUsers.includes(normalizedId)) return;
+
+    safeSetItem(DELETED_DEMO_USERS_KEY, JSON.stringify([...currentDeletedUsers, normalizedId]));
+};
+
 export const getDemoUser = (role = 'admin') => {
+    if (role === 'admin-review') {
+        return {
+            id: DEMO_IDS['admin-review'],
+            name: 'BayiOS Review İşletme',
+            role: 'admin',
+            phone: '02120000009',
+            address: 'App Review Demo Plaza No: 9 İstanbul',
+            courierCode: 'REVIEW42',
+            location: { lat: 41.0941, lng: 28.8024 },
+            demoMode: true,
+            settings: {
+                zoomLevel: '100',
+                emailNotifications: true,
+                smsNotifications: false,
+                soundAlerts: true,
+            },
+        };
+    }
+
     if (role === 'courier') {
         return {
             id: DEMO_IDS.courier,
@@ -230,6 +276,17 @@ export const createDemoState = (user) => {
             customerUserId: DEMO_IDS.customer,
             linkedUserId: DEMO_IDS.customer,
             timestamp: isoDaysAgo(6),
+        }),
+        withDocIdentity('demo-subscriber-admin-review', {
+            businessId: DEMO_BUSINESS_ID,
+            legacyId: '1005',
+            name: 'BayiOS Review İşletme',
+            phone: '02120000009',
+            address: 'App Review Demo Plaza No: 9 İstanbul',
+            status: 'Active',
+            customerUserId: DEMO_IDS['admin-review'],
+            linkedUserId: DEMO_IDS['admin-review'],
+            timestamp: isoDaysAgo(4),
         }),
     ];
 
