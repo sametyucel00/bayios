@@ -590,48 +590,6 @@ const Login = ({ onLogin }) => {
                         </div>
                     )}
 
-                    {!isForgotPassword && !isRegistering && activeRole !== 'developer' && (
-                        <div className="mb-6 rounded-[1.75rem] border border-blue-100 bg-blue-50/80 p-4 sm:p-5">
-                            <div className="flex items-start gap-3">
-                                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm">
-                                    <ShieldCheck size={18} />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600">App Review Demo</p>
-                                    <p className="mt-1 text-xs font-bold leading-relaxed text-slate-600">
-                                        Reviewers can access sample data without regional or IP restrictions.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                <button
-                                    type="button"
-                                    onClick={() => handleDemoReviewAccess('admin')}
-                                    className="rounded-2xl bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-slate-800 active:scale-[0.98]"
-                                >
-                                    İşletme Demo
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleDemoReviewAccess('courier')}
-                                    className="rounded-2xl bg-blue-600 px-4 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
-                                >
-                                    Kurye Demo
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleDemoReviewAccess('customer')}
-                                    className="rounded-2xl bg-orange-600 px-4 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-orange-700 active:scale-[0.98]"
-                                >
-                                    Müşteri Demo
-                                </button>
-                            </div>
-                            <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                Admin: `isletme / isletme`  Courier: `kurye / kurye`  Customer: `musteri / musteri`
-                            </p>
-                        </div>
-                    )}
-
                     {isForgotPassword ? (
                         <form onSubmit={handleResetPassword} className="space-y-4">
                             {forgotPasswordStep === 1 && (
