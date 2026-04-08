@@ -5,6 +5,17 @@ import { updateLocationInFirestore } from '../services/firestoreService';
 import GoogleMapTracker from '../components/GoogleMapTracker';
 import { getDirectionsTarget, pickFirstValidLocation } from '../utils/location';
 import { calculateOrderTotals, createOrderItemDraft, hydrateOrderItemWithProduct } from '../utils/orderPricing';
+
+const getDisplayName = (value, fallback = 'Misafir') => {
+    const text = String(value ?? '').trim();
+    return text || fallback;
+};
+
+const getDisplayInitial = (value) => {
+    const text = String(value ?? '').trim();
+    return text ? text.charAt(0).toLocaleUpperCase('tr-TR') : '?';
+};
+
 const CourierPortal = ({ user, onLogout }) => {
     const { orders, updateOrder, addOrder, products, subscribers, businesses } = useStore();
     const [activeTab, setActiveTab] = useState('tasks');
@@ -42,7 +53,8 @@ const CourierPortal = ({ user, onLogout }) => {
 
     const businessHub = { lat: 41.0924, lng: 28.7997 };
     const businessProfile = businesses.find(b => b.id === (user?.businessId || user?.id)) || null;
-    const getSubscriberByOrder = (order) => subscribers.find(s => s.id === order.customerId);
+    const getSubscriberByOrder = (order) => subscribers.find((s) => String(s?.id || '') === String(order?.customerId || '')) || null;
+    const getOrderCustomerName = (order) => getDisplayName(order?.customer, getSubscriberByOrder(order)?.name || 'Misafir');
     const getOrderCustomerLocation = (order) => pickFirstValidLocation(order?.customerLocation, getSubscriberByOrder(order)?.location);
     const getOrderCustomerAddress = (order) => order?.address || getSubscriberByOrder(order)?.address || '';
 
@@ -403,8 +415,12 @@ const CourierPortal = ({ user, onLogout }) => {
                                             <select 
                                                 value={item.productId}
                                                 onChange={(e) => {
+                                                    const product = products.find((entry) => entry.id === e.target.value);
                                                     const nItems = [...reconItems];
                                                     nItems[idx].productId = e.target.value;
+                                                    if (product) {
+                                                        nItems[idx].price = Math.max(0, Number(nItems[idx].price ?? product.price ?? 0));
+                                                    }
                                                     setReconItems(nItems);
                                                 }}
                                                 className="w-full bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-bold outline-none focus:border-brand-primary"
@@ -421,6 +437,21 @@ const CourierPortal = ({ user, onLogout }) => {
                                                     const qt = parseInt(e.target.value) || 1;
                                                     const nItems = [...reconItems];
                                                     nItems[idx].quantity = qt;
+                                                    setReconItems(nItems);
+                                                }}
+                                                className="w-full bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-black text-center outline-none focus:border-brand-primary"
+                                            />
+                                        </div>
+                                        <div className="w-full sm:w-32 flex flex-col items-center">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block ml-1 text-center">Fiyat</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={item.price || 0}
+                                                onChange={e => {
+                                                    const nItems = [...reconItems];
+                                                    nItems[idx].price = Math.max(0, Number(e.target.value || 0));
                                                     setReconItems(nItems);
                                                 }}
                                                 className="w-full bg-white border border-slate-200 rounded-xl p-3.5 text-xs font-black text-center outline-none focus:border-brand-primary"
@@ -488,9 +519,14 @@ const CourierPortal = ({ user, onLogout }) => {
                                 const selectedDealer = dealers.find(d => d.id === reconDealerId);
                                 const normalizedItems = reconItems.map((ri) => {
                                     const product = products.find(x => x.id === ri.productId);
-                                    return product ? hydrateOrderItemWithProduct(product, { quantity: ri.quantity, includeDeposit: Boolean(ri.includeDeposit) }) : null;
+                                    return product ? hydrateOrderItemWithProduct(product, {
+                                        quantity: ri.quantity,
+                                        price: Math.max(0, Number(ri.price ?? product.price ?? 0)),
+                                        includeDeposit: Boolean(ri.includeDeposit),
+                                    }) : null;
                                 }).filter(Boolean);
                                 const totals = calculateOrderTotals(normalizedItems);
+                                const finalAmount = reconAmount || totals.amount;
                                 const prodsText = normalizedItems.map(ri => `${ri.quantity}x ${ri.name}${ri.includeDeposit ? ' (Depozitolu)' : ''}`).join(', ');
                                 
                                 await addOrder({
@@ -499,7 +535,7 @@ const CourierPortal = ({ user, onLogout }) => {
                                     product: `(BAYİ TESLİMATI) ${prodsText}`,
                                     items: normalizedItems,
                                     quantity: totals.quantity,
-                                    amount: reconAmount || totals.amount,
+                                    amount: finalAmount,
                                     productTotal: totals.productTotal,
                                     depositTotal: totals.depositTotal,
                                     paymentMethod: reconPaymentMethod,
@@ -522,7 +558,7 @@ const CourierPortal = ({ user, onLogout }) => {
 
                                 const courierUpdates = { currentStock: updatedStock };
                                 if (reconPaymentMethod === 'Nakit') {
-                                    courierUpdates.cash = (currentCourier.cash || 0) + reconAmount;
+                                    courierUpdates.cash = (currentCourier.cash || 0) + finalAmount;
                                 }
 
                                 await useStore.getState().updateCourier(currentCourier.id, courierUpdates);
@@ -673,13 +709,13 @@ const CourierPortal = ({ user, onLogout }) => {
                                 <div className="flex items-center gap-4">
                                     <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center text-2xl font-black shadow-2xl relative ${index === 0 ? 'bg-slate-900 text-white shadow-brand-primary/30' : 'bg-gradient-to-br from-brand-primary to-blue-600 text-white shadow-brand-primary/20'}`}>
                                         <span className="absolute -top-2 -left-2 w-7 h-7 bg-white text-slate-900 rounded-lg flex items-center justify-center text-xs border border-slate-100 shadow-sm">{index + 1}</span>
-                                        {order.customer ? order.customer.charAt(0).toUpperCase() : '?'}
+                                        {getDisplayInitial(getOrderCustomerName(order))}
                                         <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-brand-accent rounded-full border-4 border-white flex items-center justify-center">
                                             <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                                         </div>
                                     </div>
                                     <div>
-                                        <h3 className="font-black text-slate-900 text-xl leading-tight group-hover:text-brand-primary transition-colors">{order.customer || 'Misafir'}</h3>
+                                        <h3 className="font-black text-slate-900 text-xl leading-tight group-hover:text-brand-primary transition-colors">{getOrderCustomerName(order)}</h3>
                                         <div className="flex items-center gap-2 text-slate-400 text-xs mt-1 font-bold">
                                             <MapPin size={12} className="text-brand-primary" />
                                             {order.address || subscribers.find(s => s.id === order.customerId)?.address || <span className="text-rose-400 italic">Adres Tanımlı Değil</span>}
@@ -810,7 +846,7 @@ const CourierPortal = ({ user, onLogout }) => {
                         <div className="p-8 space-y-8 flex-1 overflow-y-auto">
                             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 uppercase text-[10px] font-black text-slate-400">
                                 <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Müşteri ve Sipariş</p>
-                                <p className="font-black text-slate-800">{selectedOrder.customer}</p>
+                                <p className="font-black text-slate-800">{getOrderCustomerName(selectedOrder)}</p>
                                 <p className="text-sm text-slate-400 mt-1">{selectedOrder.product} x{selectedOrder.quantity}</p>
                             </div>
 

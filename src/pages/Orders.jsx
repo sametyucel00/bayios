@@ -45,6 +45,7 @@ const formatMoney = (value) => `\u20BA${Number(value || 0).toLocaleString('tr-TR
 
 const normalizeText = (value) => String(value ?? '').toLocaleLowerCase('tr-TR');
 const normalizeDigits = (value) => String(value ?? '').replace(/\D/g, '');
+const matchesId = (left, right) => String(left ?? '') === String(right ?? '');
 
 const getInitial = (value) => {
     const normalized = String(value ?? '').trim();
@@ -223,6 +224,15 @@ const Orders = () => {
         { label: 'Bugün TL', value: formatMoney(todayMetrics.amount), icon: Calendar, color: 'text-violet-500', bg: 'bg-violet-50', trend: `${todayMetrics.count} sipariş` },
         { label: 'Bu Ay TL', value: formatMoney(monthMetrics.amount), icon: CreditCard, color: 'text-fuchsia-500', bg: 'bg-fuchsia-50', trend: `${monthMetrics.count} sipariş` },
     ];
+    const createOrderTotals = calculateOrderTotals(newOrder.items.map((item) => {
+        const product = products.find((entry) => matchesId(entry.id, item.productId));
+        return {
+            price: Number(item.price ?? product?.price ?? 0),
+            depositFee: Number(product?.depositFee ?? item.depositFee ?? 0),
+            quantity: Number(item.quantity || 0),
+            includeDeposit: Boolean(item.includeDeposit),
+        };
+    }));
 
     const handleCreateOrder = async (event) => {
         event.preventDefault();
@@ -235,10 +245,11 @@ const Orders = () => {
 
         const items = newOrder.items
             .map((item) => {
-                const product = products.find((entry) => entry.id === item.productId);
+                const product = products.find((entry) => matchesId(entry.id, item.productId));
                 if (!product) return null;
                 const hydrated = hydrateOrderItemWithProduct(product, {
                     quantity: Number(item.quantity || 1),
+                    price: Math.max(0, Number(item.price ?? product.price ?? 0)),
                     includeDeposit: Boolean(item.includeDeposit),
                 });
                 return {
@@ -358,6 +369,26 @@ const Orders = () => {
         setNewOrder((previous) => ({ ...previous, items }));
     };
 
+    const updateOrderProduct = (index, productId) => {
+        const product = products.find((entry) => matchesId(entry.id, productId));
+        if (!product) {
+            updateOrderItem(index, 'productId', '');
+            return;
+        }
+
+        const items = [...newOrder.items];
+        const currentQuantity = Number(items[index]?.quantity || 1);
+        items[index] = {
+            ...items[index],
+            ...hydrateOrderItemWithProduct(product, {
+                quantity: currentQuantity,
+                includeDeposit: Boolean(items[index]?.includeDeposit),
+                price: Number(items[index]?.price || product.price || 0),
+            }),
+        };
+        setNewOrder((previous) => ({ ...previous, items }));
+    };
+
     const removeOrderItem = (index) => {
         const items = newOrder.items.filter((_, currentIndex) => currentIndex !== index);
         setNewOrder((previous) => ({ ...previous, items }));
@@ -385,7 +416,7 @@ const Orders = () => {
     };
 
     const updateEditProduct = (index, productId) => {
-        const product = products.find((entry) => entry.id === productId);
+        const product = products.find((entry) => matchesId(entry.id, productId));
         if (!product) return;
 
         const items = [...editOrderData.items];
@@ -519,10 +550,26 @@ const Orders = () => {
                             <div className="space-y-4">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Sipariş İçeriği</label><button type="button" onClick={addOrderItem} className="w-full sm:w-auto text-[11px] font-black text-brand-primary uppercase tracking-widest bg-brand-primary/10 px-6 py-3 rounded-2xl hover:bg-brand-primary hover:text-white transition-all shadow-sm">+ Ürün Ekle</button></div>
                                 {newOrder.items.map((item, index) => {
-                                    const selectedProduct = products.find((product) => product.id === item.productId);
+                                    const selectedProduct = products.find((product) => matchesId(product.id, item.productId));
                                     const hasDeposit = Number(selectedProduct?.depositFee || 0) > 0;
-                                    return <div key={index} className="flex flex-col gap-3 bg-white p-4 rounded-[2rem] border-2 border-slate-50"><div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center"><div className="flex-1"><select required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-brand-primary transition-all text-[11px] font-black uppercase tracking-tight" value={item.productId} onChange={(event) => updateOrderItem(index, 'productId', event.target.value)}><option value="">Ürün Seçiniz...</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name} - {formatMoney(product.price)}</option>)}</select></div><div className="w-full sm:w-24"><input type="number" min="1" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-brand-primary transition-all text-sm font-black text-center" value={item.quantity} onChange={(event) => updateOrderItem(index, 'quantity', Number(event.target.value || 1))} /></div>{newOrder.items.length > 1 && <button type="button" onClick={() => removeOrderItem(index)} className="w-full sm:w-auto p-4 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all flex items-center justify-center"><Trash2 size={20} /></button>}</div>{hasDeposit && <label className="flex items-center justify-between gap-4 rounded-2xl border border-orange-100 bg-orange-50/60 px-4 py-3 text-[11px] font-black uppercase tracking-wider text-orange-600"><span>Depozito Var</span><input type="checkbox" className="h-5 w-5 accent-orange-500" checked={Boolean(item.includeDeposit)} onChange={(event) => updateOrderItem(index, 'includeDeposit', event.target.checked)} /></label>}</div>;
+                                    return <div key={index} className="flex flex-col gap-3 bg-white p-4 rounded-[2rem] border-2 border-slate-50"><div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center"><div className="flex-1"><select required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-brand-primary transition-all text-[11px] font-black uppercase tracking-tight" value={item.productId} onChange={(event) => updateOrderProduct(index, event.target.value)}><option value="">Ürün Seçiniz...</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name} - {formatMoney(product.price)}</option>)}</select></div><div className="w-full sm:w-28"><input type="number" min="1" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-brand-primary transition-all text-sm font-black text-center" value={item.quantity} onChange={(event) => updateOrderItem(index, 'quantity', Math.max(1, Number(event.target.value || 1)))} /></div>{newOrder.items.length > 1 && <button type="button" onClick={() => removeOrderItem(index)} className="w-full sm:w-auto p-4 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all flex items-center justify-center"><Trash2 size={20} /></button>}</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><input type="number" min="0" step="0.01" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-brand-primary transition-all text-sm font-black" placeholder="Manuel Fiyat" value={item.price} onChange={(event) => updateOrderItem(index, 'price', Math.max(0, Number(event.target.value || 0)))} />{hasDeposit && <label className="flex items-center justify-between gap-4 rounded-2xl border border-orange-100 bg-orange-50/60 px-4 py-3 text-[11px] font-black uppercase tracking-wider text-orange-600"><span>Depozito Var</span><input type="checkbox" className="h-5 w-5 accent-orange-500" checked={Boolean(item.includeDeposit)} onChange={(event) => updateOrderItem(index, 'includeDeposit', event.target.checked)} /></label>}</div></div>;
                                 })}
+                                <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50/60 px-5 py-4">
+                                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                                        <span>Ara Toplam</span>
+                                        <span>{formatMoney(createOrderTotals.productTotal)}</span>
+                                    </div>
+                                    {createOrderTotals.depositTotal > 0 && (
+                                        <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-orange-600">
+                                            <span>Depozito</span>
+                                            <span>{formatMoney(createOrderTotals.depositTotal)}</span>
+                                        </div>
+                                    )}
+                                    <div className="mt-3 flex items-center justify-between border-t border-emerald-100 pt-3">
+                                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Genel Toplam</span>
+                                        <span className="text-lg font-black text-emerald-700">{formatMoney(createOrderTotals.amount)}</span>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                         <div className="p-5 sm:p-8 border-t border-slate-100 bg-white"><button onClick={handleCreateOrder} className="w-full bg-slate-900 text-white font-black py-5 sm:py-7 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl hover:bg-brand-primary transition-all flex items-center justify-center gap-4 tracking-[0.25em] sm:tracking-[0.3em] text-xs uppercase"><ShoppingCart size={24} /> SİPARİŞ OLUŞTUR</button></div>
