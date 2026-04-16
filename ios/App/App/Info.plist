@@ -24,8 +24,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Profil fotografinizi cekmek ve hesabiniza eklemek icin kameraya erisim gerekir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Siparis takibi, yakin isletmeleri gormek ve rota gostermek icin konumunuza erisim gerekir.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Cektiginiz veya sectiginiz profil fotografini uygulamada kullanabilmek icin fotograf kitapligina kayit izni gerekir.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Profil fotografinizi secmek veya guncellemek icin fotograf kitapliginiza erisim gerekir.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
