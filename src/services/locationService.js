@@ -20,7 +20,9 @@ const propagateLocation = (userId, userRole, callbacks, latitude, longitude) => 
         console.log(`Location Acquired: ${latitude}, ${longitude}`);
     }
 
-    updateLocationInFirestore(userId, latitude, longitude);
+    Promise.resolve(updateLocationInFirestore(userId, latitude, longitude)).catch((error) => {
+        console.warn("Location sync failed:", error);
+    });
 
     if (userRole === "courier") {
         const store = getStore();
@@ -143,7 +145,9 @@ export const stopLocationTracking = async (watchId) => {
         if (isNativePlatform()) {
             await Geolocation.clearWatch({ id: String(watchId) });
         } else {
-            navigator.geolocation.clearWatch(watchId);
+            if (typeof navigator !== "undefined" && navigator.geolocation) {
+                navigator.geolocation.clearWatch(watchId);
+            }
         }
     } catch (error) {
         console.warn("Location watch cleanup failed:", error);

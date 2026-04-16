@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, lazy, startTransition, useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import useStore from './store/useStore';
 import SubscriptionGuard from './components/SubscriptionGuard';
@@ -95,6 +95,11 @@ function App() {
 
   const [currentView, setCurrentView] = useState('dashboard');
   const [rememberHydrated, setRememberHydrated] = useState(false);
+  const handleViewChange = (nextView) => {
+    startTransition(() => {
+      setCurrentView(nextView);
+    });
+  };
 
   useEffect(() => {
     if (rememberHydrated) return;
@@ -398,7 +403,7 @@ function App() {
 
   useEffect(() => {
     if (storeUser?.role?.toLowerCase() === 'customer' && (currentView === 'dashboard' || currentView === 'orders')) {
-      setTimeout(() => setCurrentView('market'), 0);
+      setTimeout(() => handleViewChange('market'), 0);
     }
   }, [storeUser?.role, currentView]);
 
@@ -412,7 +417,7 @@ function App() {
     useStore.getState().clearData();
     safeRemoveItem('bayios-auto-login');
     safeRemoveItem('bayios-remembered-user');
-    setCurrentView('dashboard');
+    handleViewChange('dashboard');
   };
 
   const closeActiveCallEverywhere = async () => {
@@ -463,7 +468,7 @@ function App() {
 
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard user={storeUser} setCurrentView={setCurrentView} />;
+        return <Dashboard user={storeUser} setCurrentView={handleViewChange} />;
       case 'products':
         return <Products user={storeUser} />;
       case 'orders':
@@ -532,7 +537,7 @@ function App() {
     <SubscriptionGuard>
       <Layout
         currentView={currentView}
-        setCurrentView={setCurrentView}
+        setCurrentView={handleViewChange}
         onLogout={handleLogout}
         user={storeUser}
       >

@@ -2,6 +2,12 @@ import React from 'react';
 import { Package, Info, PlusCircle, Edit, Trash2 } from 'lucide-react';
 
 const ProductCard = ({ product, onAddStock, onEdit, onDelete, categoryLabel }) => {
+    const normalizedCategoryLabel = String(categoryLabel ?? '').toLocaleLowerCase('tr-TR');
+    const tracksEmptyReturns = normalizedCategoryLabel.includes('damacana')
+        || normalizedCategoryLabel.includes('tüp')
+        || normalizedCategoryLabel.includes('tÃ¼p')
+        || normalizedCategoryLabel.includes('tã¼p');
+
     return (
         <div className="premium-card group overflow-hidden flex flex-col h-full bg-white transition-all duration-300 hover:scale-[1.02] border border-slate-100">
             <div className="h-40 md:h-56 bg-slate-50 flex items-center justify-center relative overflow-hidden">
@@ -18,7 +24,7 @@ const ProductCard = ({ product, onAddStock, onEdit, onDelete, categoryLabel }) =
                     </div>
                 )}
 
-                {product.depositFee > 0 && (
+                {Number(product.depositFee || 0) > 0 && (
                     <span className="absolute top-3 right-3 bg-orange-500 text-white text-[8px] md:text-[10px] font-black px-2 md:px-3 py-1 md:py-1.5 rounded-xl flex items-center gap-1.5 md:gap-2 shadow-xl shadow-orange-500/30 border border-white/20 uppercase tracking-tighter z-10">
                         <Info size={10} />
                         Depozito: ₺{product.depositFee}
@@ -32,7 +38,9 @@ const ProductCard = ({ product, onAddStock, onEdit, onDelete, categoryLabel }) =
 
             <div className="p-4 md:p-6 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-3 md:mb-4 gap-4">
-                    <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight group-hover:text-brand-primary transition-colors line-clamp-2" title={product.name}>{product.name}</h3>
+                    <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight group-hover:text-brand-primary transition-colors line-clamp-2" title={product.name}>
+                        {product.name}
+                    </h3>
                 </div>
 
                 <div className="mt-auto">
@@ -46,10 +54,10 @@ const ProductCard = ({ product, onAddStock, onEdit, onDelete, categoryLabel }) =
                         <div className="text-right">
                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Stok Durumu</p>
                             <div className="flex flex-col items-end gap-1">
-                                <span className={`text-[10px] md:text-xs font-black flex items-center justify-end gap-1.5 ${product.stock < 20 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                <span className={`text-[10px] md:text-xs font-black flex items-center justify-end gap-1.5 ${Number(product.stock || 0) < 20 ? 'text-rose-500' : 'text-emerald-600'}`}>
                                     {product.stock || 0} Dolu
                                 </span>
-                                {(categoryLabel.toLowerCase().includes('damacana') || categoryLabel.toLowerCase().includes('tüp')) && (
+                                {tracksEmptyReturns && (
                                     <span className="text-[10px] md:text-xs font-black text-slate-400 flex items-center justify-end gap-1.5">
                                         {product.emptyStock || 0} Boş
                                     </span>

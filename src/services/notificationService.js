@@ -69,7 +69,21 @@ const requestNativeNotificationPermission = async (userId) => {
 };
 
 const requestWebNotificationPermission = async (userId) => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+        return null;
+    }
+
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        console.warn("Web notifications are not supported in this environment.");
+        return null;
+    }
+
     const { messaging } = await import("../lib/firebase");
+    if (!messaging) {
+        console.warn("Firebase messaging is not available.");
+        return null;
+    }
+
     const { getToken } = await import("firebase/messaging");
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
@@ -137,6 +151,17 @@ export const onMessageListener = () =>
 
         import("firebase/messaging").then(({ onMessage }) => {
             import("../lib/firebase").then(({ messaging }) => {
+                if (!messaging) {
+                    resolve({
+                        notification: {
+                            title: "Bildirim servisi kullanılamıyor",
+                            body: "",
+                        },
+                        data: {},
+                    });
+                    return;
+                }
+
                 onMessage(messaging, (payload) => {
                     resolve(payload);
                 });

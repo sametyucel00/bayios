@@ -5,10 +5,11 @@ import useStore from '../store/useStore';
 const Calls = () => {
     const { incomingCalls, clearIncomingCalls, deleteIncomingCall, setActiveCall } = useStore();
     const [searchTerm, setSearchTerm] = useState('');
+    const normalizeText = (value) => String(value ?? '').toLocaleLowerCase('tr-TR');
 
     const filteredCalls = incomingCalls.filter(c => 
-        (c.number || '').includes(searchTerm) ||
-        (c.deviceId || '').toLowerCase().includes((searchTerm || '').toLowerCase())
+        String(c?.number ?? '').includes(searchTerm || '') ||
+        normalizeText(c?.deviceId).includes(normalizeText(searchTerm))
     );
 
     const formatTime = (isoString) => {

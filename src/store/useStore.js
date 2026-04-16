@@ -64,6 +64,14 @@ const isReturnTrackingCategory = (value) => {
     return label.includes('damacana') || label.includes('tüp') || label.includes('tã¼p') || label.includes('tÃ¼p');
 };
 
+const getNextLegacyId = (subscribers = []) => {
+    const numbers = subscribers
+        .map((item) => Number.parseInt(String(item?.legacyId ?? '').replace(/\D/g, ''), 10))
+        .filter((value) => Number.isFinite(value));
+
+    return String((numbers.length > 0 ? Math.max(...numbers) : 0) + 1);
+};
+
 const toNumber = (value) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -392,7 +400,11 @@ const useStore = create(
                     return { id: createdSubscriber.id };
                 }
 
-                return await addSubscriberToFirestore({ ...subscriber, businessId: get().getBusinessId() });
+                return await addSubscriberToFirestore({
+                    ...subscriber,
+                    businessId: get().getBusinessId(),
+                    legacyId: subscriber.legacyId || getNextLegacyId(get().subscribers),
+                });
             },
 
             updateSubscriber: async (subscriberId, data) => {
@@ -983,8 +995,9 @@ const useStore = create(
                 // Bulky data like orders/subscribers should NOT be in localStorage
                 // as they exceed 5MB limit and cause the app to fail intermittently.
                 // Firestore has its own built-in persistence now.
+                const shouldRememberUser = safeGetItem('bayios-auto-login') === 'true';
                 return {
-                    currentUser: state.currentUser,
+                    currentUser: shouldRememberUser ? state.currentUser : null,
                     notifications: state.notifications,
                 };
             },

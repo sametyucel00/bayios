@@ -104,7 +104,12 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
     const cartItems = Object.entries(cart)
         .map(([id, entry]) => {
             const product = products.find(p => p.id.toString() === id.toString());
-            return product ? { ...product, quantity: Number(entry?.quantity || 0), includeDeposit: Boolean(entry?.includeDeposit) } : null;
+            return product ? {
+                ...product,
+                quantity: Number(entry?.quantity || 0),
+                includeDeposit: Boolean(entry?.includeDeposit),
+                price: Math.max(0, Number(entry?.price ?? product.price ?? 0)),
+            } : null;
         })
         .filter(item => item !== null && item.quantity > 0);
 
@@ -119,7 +124,8 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
 
     const updateCart = (productId, delta) => {
         setCart(prev => {
-            const currentEntry = prev[productId] || { quantity: 0, includeDeposit: false };
+            const product = products.find((item) => String(item.id) === String(productId));
+            const currentEntry = prev[productId] || { quantity: 0, includeDeposit: false, price: Number(product?.price || 0) };
             const currentQty = Number(currentEntry.quantity || 0);
             const newQty = Math.max(0, currentQty + delta);
             if (newQty === 0) {
@@ -132,11 +138,25 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
     };
 
     const updateCartDeposit = (productId, includeDeposit) => {
+        const product = products.find((item) => String(item.id) === String(productId));
         setCart((prev) => ({
             ...prev,
             [productId]: {
                 quantity: Number(prev[productId]?.quantity || 1),
                 includeDeposit,
+                price: Math.max(0, Number(prev[productId]?.price ?? product?.price ?? 0)),
+            },
+        }));
+    };
+
+    const updateCartPrice = (productId, price) => {
+        const product = products.find((item) => String(item.id) === String(productId));
+        setCart((prev) => ({
+            ...prev,
+            [productId]: {
+                quantity: Number(prev[productId]?.quantity || 1),
+                includeDeposit: Boolean(prev[productId]?.includeDeposit),
+                price: Math.max(0, Number(price ?? prev[productId]?.price ?? product?.price ?? 0)),
             },
         }));
     };
@@ -150,6 +170,7 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
             const orderItems = cartItems.map((item) => {
                 const hydrated = hydrateOrderItemWithProduct(item, {
                     quantity: item.quantity,
+                    price: Math.max(0, Number(item.price ?? 0)),
                     includeDeposit: Boolean(item.includeDeposit),
                 });
                 return {
@@ -467,7 +488,7 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
                                             <div className="space-y-3 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
                                                 {cartItems.map(item => (
                                                     <div key={item.id} className="flex justify-between items-center group">
-                                                        <div>
+                                                        <div className="min-w-0 flex-1 pr-4">
                                                             <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-colors">{item.name}</div>
                                                             <div className="text-[10px] text-slate-400 font-bold">{item.quantity} Adet × ₺{item.price}</div>
                                                             {Number(item.depositFee || 0) > 0 && (
@@ -481,6 +502,15 @@ const CustomerPortal = ({ user, initialTab = 'market' }) => {
                                                                     Depozito Var
                                                                 </label>
                                                             )}
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700 outline-none focus:border-brand-primary"
+                                                                value={item.price}
+                                                                onChange={(e) => updateCartPrice(item.id, e.target.value)}
+                                                                placeholder="Manuel fiyat"
+                                                            />
                                                         </div>
                                                         <div className="font-bold text-slate-700">₺{(Number(item.price || 0) + (item.includeDeposit ? Number(item.depositFee || 0) : 0)) * item.quantity}</div>
                                                     </div>

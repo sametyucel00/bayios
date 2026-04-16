@@ -25,7 +25,7 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
                 item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
             ));
         } else {
-            setCart([...cart, { ...product, quantity: 1, includeDeposit: false }]);
+            setCart([...cart, { ...product, quantity: 1, includeDeposit: false, price: Number(product.price || 0) }]);
         }
     };
 
@@ -57,6 +57,12 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
         )));
     };
 
+    const updateItemPrice = (productId, price) => {
+        setCart((current) => current.map((item) => (
+            item.id === productId ? { ...item, price: Math.max(0, Number(price || 0)) } : item
+        )));
+    };
+
     const handleComplete = async () => {
         for (const item of cart) {
             let courierName = 'Gel-Al';
@@ -67,6 +73,7 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
 
             const hydrated = hydrateOrderItemWithProduct(item, {
                 quantity: item.quantity,
+                price: Math.max(0, Number(item.price ?? 0)),
                 includeDeposit: Boolean(item.includeDeposit),
             });
             const lineTotals = calculateOrderTotals([hydrated]);
@@ -236,6 +243,15 @@ const QuickSaleDrawer = ({ isOpen, onClose, onComplete, initialCustomer = null }
                                                     />
                                                 </label>
                                             )}
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700 outline-none focus:border-brand-primary"
+                                                value={item.price}
+                                                onChange={(e) => updateItemPrice(item.id, e.target.value)}
+                                                placeholder="Manuel fiyat"
+                                            />
                                         </div>
                                     ))
                                 )}

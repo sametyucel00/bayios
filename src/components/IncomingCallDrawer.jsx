@@ -18,6 +18,14 @@ const getNextSubscriberNumber = (subscribers = []) => {
     return String((numbers.length > 0 ? Math.max(...numbers) : 0) + 1);
 };
 
+const getNextLegacyNumber = (subscribers = []) => {
+    const numbers = subscribers
+        .map((item) => Number.parseInt(String(item?.legacyId ?? '').replace(/\D/g, ''), 10))
+        .filter((value) => Number.isFinite(value));
+
+    return String((numbers.length > 0 ? Math.max(...numbers) : 0) + 1);
+};
+
 const findExistingSubscriberByPhone = (subscribers = [], rawPhone = '') => {
     const normalizedTargetPhone = normalizePhone(rawPhone);
     if (!normalizedTargetPhone) return null;
@@ -233,6 +241,7 @@ const IncomingCallDrawer = ({ isOpen, phone: incomingPhone, deviceId, onClose, i
 
         const newSub = {
             id: getNextSubscriberNumber(subscribers),
+            legacyId: getNextLegacyNumber(subscribers),
             name: newSubName,
             phone,
             address: newSubAddress,
